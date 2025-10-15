@@ -8,10 +8,11 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Trash2 } from "lucide-react";
+import { Edit, Trash2, Eye } from "lucide-react";
 import { Employee, useDeleteEmployee } from "@/hooks/useEmployees";
 import { EmployeeFormDialog } from "./EmployeeFormDialog";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { useNavigate } from "react-router-dom";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,6 +31,7 @@ interface EmployeesTableProps {
 
 export function EmployeesTable({ employees }: EmployeesTableProps) {
   const deleteEmployee = useDeleteEmployee();
+  const navigate = useNavigate();
 
   const handleDelete = async (id: string) => {
     await deleteEmployee.mutateAsync(id);
@@ -80,16 +82,24 @@ export function EmployeesTable({ employees }: EmployeesTableProps) {
                       {employee.activo ? "Activo" : "Inactivo"}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <EmployeeFormDialog
-                        employee={employee}
-                        trigger={
-                          <Button variant="ghost" size="icon">
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                        }
-                      />
+                <TableCell className="text-right">
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => navigate(`/empleados/${employee.id}`)}
+                      title="Ver perfil"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                    <EmployeeFormDialog
+                      employee={employee}
+                      trigger={
+                        <Button variant="ghost" size="icon">
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      }
+                    />
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button variant="ghost" size="icon">
