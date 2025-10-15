@@ -88,6 +88,92 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          clocking_id: string | null
+          created_at: string | null
+          employee_id: string
+          id: string
+          leida: boolean | null
+          mensaje: string
+          tipo: string
+        }
+        Insert: {
+          clocking_id?: string | null
+          created_at?: string | null
+          employee_id: string
+          id?: string
+          leida?: boolean | null
+          mensaje: string
+          tipo: string
+        }
+        Update: {
+          clocking_id?: string | null
+          created_at?: string | null
+          employee_id?: string
+          id?: string
+          leida?: boolean | null
+          mensaje?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_clocking_id_fkey"
+            columns: ["clocking_id"]
+            isOneToOne: false
+            referencedRelation: "clockings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      work_schedules: {
+        Row: {
+          created_at: string | null
+          dia_semana: number
+          employee_id: string | null
+          hora_entrada: string
+          hora_salida: string
+          id: string
+          tolerancia_minutos: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          dia_semana: number
+          employee_id?: string | null
+          hora_entrada: string
+          hora_salida: string
+          id?: string
+          tolerancia_minutos?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          dia_semana?: number
+          employee_id?: string | null
+          hora_entrada?: string
+          hora_salida?: string
+          id?: string
+          tolerancia_minutos?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_schedules_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
