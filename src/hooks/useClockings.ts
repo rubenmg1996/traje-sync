@@ -77,10 +77,12 @@ export const useCurrentEmployee = () => {
 
       if (!user) throw new Error("Usuario no autenticado");
 
+      // Buscar por email ya que los empleados pueden no tener user_id asignado
       const { data, error } = await supabase
         .from("employees")
         .select("*")
-        .eq("user_id", user.id)
+        .eq("email", user.email)
+        .eq("activo", true)
         .maybeSingle();
 
       if (error) throw error;
