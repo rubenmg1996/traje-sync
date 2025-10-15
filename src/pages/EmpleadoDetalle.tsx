@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Clock, Mail, Phone, User } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { format } from "date-fns";
+import { format, startOfMonth, endOfMonth, subMonths, isWithinInterval } from "date-fns";
 import { es } from "date-fns/locale";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -21,6 +22,44 @@ import {
 const EmpleadoDetalle = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+
+  const currentDate = new Date();
+  const currentMonth = startOfMonth(currentDate);
+  const lastMonth = startOfMonth(subMonths(currentDate, 1));
+  const twoMonthsAgo = startOfMonth(subMonths(currentDate, 2));
+
+  const calculateWorkedHours = (clockings: any[]) => {
+    let totalMinutes = 0;
+    const sortedClockings = [...clockings].sort(
+      (a, b) => new Date(a.fecha_hora).getTime() - new Date(b.fecha_hora).getTime()
+    );
+
+    for (let i = 0; i < sortedClockings.length - 1; i++) {
+      if (
+        sortedClockings[i].tipo === "entrada" &&
+        sortedClockings[i + 1].tipo === "salida"
+      ) {
+        const entrada = new Date(sortedClockings[i].fecha_hora);
+        const salida = new Date(sortedClockings[i + 1].fecha_hora);
+        const diffMinutes = (salida.getTime() - entrada.getTime()) / (1000 * 60);
+        totalMinutes += diffMinutes;
+      }
+    }
+
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = Math.round(totalMinutes % 60);
+    return `${hours}h ${minutes}m`;
+  };
+
+  const filterClockingsByMonth = (clockings: any[], monthStart: Date) => {
+    const monthEnd = endOfMonth(monthStart);
+    return clockings.filter((clocking) =>
+      isWithinInterval(new Date(clocking.fecha_hora), {
+        start: monthStart,
+        end: monthEnd,
+      })
+    );
+  };
 
   const { data: employee, isLoading: isLoadingEmployee } = useQuery({
     queryKey: ["employee", id],
@@ -185,45 +224,89 @@ const EmpleadoDetalle = () => {
               <Skeleton className="h-10 w-full" />
             </div>
           ) : clockings && clockings.length > 0 ? (
-            <div className="rounded-md border">
-              <ScrollArea className="w-full">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="min-w-[200px]">Fecha y Hora</TableHead>
-                      <TableHead className="min-w-[120px]">Tipo</TableHead>
-                      <TableHead className="min-w-[100px]">Día</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {clockings.map((clocking) => (
-                      <TableRow key={clocking.id}>
-                        <TableCell className="font-medium">
-                          {format(new Date(clocking.fecha_hora), "PPp", {
-                            locale: es,
-                          })}
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={
-                              clocking.tipo === "entrada" ? "default" : "secondary"
-                            }
-                          >
-                            {clocking.tipo === "entrada" ? "Entrada" : "Salida"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {format(new Date(clocking.fecha_hora), "EEEE", {
-                            locale: es,
-                          })}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-                <ScrollBar orientation="horizontal" />
-              </ScrollArea>
-            </div>
+            <Tabs defaultValue="current" className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="current">
+                  {format(currentMonth, "MMMM yyyy", { locale: es })}
+                </TabsTrigger>
+                <TabsTrigger value="last">
+                  {format(lastMonth, "MMMM yyyy", { locale: es })}
+                </TabsTrigger>
+                <TabsTrigger value="twoMonths">
+                  {format(twoMonthsAgo, "MMMM yyyy", { locale: es })}
+                </TabsTrigger>
+              </TabsList>
+
+              {[
+                { value: "current", month: currentMonth },
+                { value: "last", month: lastMonth },
+                { value: "twoMonths", month: twoMonthsAgo },
+              ].map(({ value, month }) => {
+                const monthClockings = filterClockingsByMonth(clockings, month);
+                const workedHours = calculateWorkedHours(monthClockings);
+
+                return (
+                  <TabsContent key={value} value={value} className="space-y-4">
+                    <div className="flex justify-between items-center p-4 rounded-lg border bg-muted/50">
+                      <span className="text-sm font-medium">Horas trabajadas</span>
+                      <span className="text-2xl font-bold">{workedHours}</span>
+                    </div>
+
+                    {monthClockings.length > 0 ? (
+                      <div className="rounded-md border">
+                        <ScrollArea className="w-full">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="min-w-[200px]">
+                                  Fecha y Hora
+                                </TableHead>
+                                <TableHead className="min-w-[120px]">Tipo</TableHead>
+                                <TableHead className="min-w-[100px]">Día</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {monthClockings.map((clocking) => (
+                                <TableRow key={clocking.id}>
+                                  <TableCell className="font-medium">
+                                    {format(new Date(clocking.fecha_hora), "PPp", {
+                                      locale: es,
+                                    })}
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge
+                                      variant={
+                                        clocking.tipo === "entrada"
+                                          ? "default"
+                                          : "secondary"
+                                      }
+                                    >
+                                      {clocking.tipo === "entrada"
+                                        ? "Entrada"
+                                        : "Salida"}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="text-muted-foreground">
+                                    {format(new Date(clocking.fecha_hora), "EEEE", {
+                                      locale: es,
+                                    })}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                          <ScrollBar orientation="horizontal" />
+                        </ScrollArea>
+                      </div>
+                    ) : (
+                      <p className="text-center text-muted-foreground py-8">
+                        No hay fichajes registrados en este mes
+                      </p>
+                    )}
+                  </TabsContent>
+                );
+              })}
+            </Tabs>
           ) : (
             <p className="text-center text-muted-foreground py-8">
               No hay fichajes registrados
