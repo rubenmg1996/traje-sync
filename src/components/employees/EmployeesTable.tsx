@@ -43,12 +43,12 @@ export function EmployeesTable({ employees }: EmployeesTableProps) {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="min-w-[100px]">Acciones</TableHead>
               <TableHead className="min-w-[150px]">Nombre</TableHead>
               <TableHead className="min-w-[200px]">Email</TableHead>
               <TableHead className="min-w-[120px]">Teléfono</TableHead>
               <TableHead className="min-w-[120px]">Rol</TableHead>
               <TableHead className="min-w-[100px]">Estado</TableHead>
-              <TableHead className="text-right min-w-[120px]">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -61,29 +61,8 @@ export function EmployeesTable({ employees }: EmployeesTableProps) {
             ) : (
               employees.map((employee) => (
                 <TableRow key={employee.id}>
-                  <TableCell className="font-medium">
-                    {employee.nombre} {employee.apellido}
-                  </TableCell>
-                  <TableCell>{employee.email}</TableCell>
-                  <TableCell>{employee.telefono || "-"}</TableCell>
                   <TableCell>
-                    <Badge
-                      variant={
-                        employee.rol === "administrador" ? "default" : "secondary"
-                      }
-                    >
-                      {employee.rol}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={employee.activo ? "default" : "secondary"}
-                    >
-                      {employee.activo ? "Activo" : "Inactivo"}
-                    </Badge>
-                  </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-2">
+                    <div className="flex gap-1">
                     <Button
                       variant="ghost"
                       size="icon"
@@ -127,6 +106,27 @@ export function EmployeesTable({ employees }: EmployeesTableProps) {
                         </AlertDialogContent>
                       </AlertDialog>
                     </div>
+                  </TableCell>
+                  <TableCell className="font-medium">
+                    {employee.nombre} {employee.apellido}
+                  </TableCell>
+                  <TableCell>{employee.email}</TableCell>
+                  <TableCell>{employee.telefono || "-"}</TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={
+                        employee.rol === "administrador" ? "default" : "secondary"
+                      }
+                    >
+                      {employee.rol}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={employee.activo ? "default" : "secondary"}
+                    >
+                      {employee.activo ? "Activo" : "Inactivo"}
+                    </Badge>
                   </TableCell>
                 </TableRow>
               ))
