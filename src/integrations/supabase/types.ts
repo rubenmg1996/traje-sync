@@ -88,6 +88,51 @@ export type Database = {
         }
         Relationships: []
       }
+      incidencias: {
+        Row: {
+          asignado_a: string | null
+          comentarios: string | null
+          creado_por: string
+          created_at: string
+          descripcion: string
+          estado: string
+          fecha_creacion: string
+          fecha_resolucion: string | null
+          id: string
+          prioridad: string
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          asignado_a?: string | null
+          comentarios?: string | null
+          creado_por: string
+          created_at?: string
+          descripcion: string
+          estado?: string
+          fecha_creacion?: string
+          fecha_resolucion?: string | null
+          id?: string
+          prioridad?: string
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          asignado_a?: string | null
+          comentarios?: string | null
+          creado_por?: string
+          created_at?: string
+          descripcion?: string
+          estado?: string
+          fecha_creacion?: string
+          fecha_resolucion?: string | null
+          id?: string
+          prioridad?: string
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           clocking_id: string | null

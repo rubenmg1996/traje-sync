@@ -1,23 +1,23 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { CreateIncidenciaDialog } from "@/components/incidencias/CreateIncidenciaDialog";
+import { IncidenciasStats } from "@/components/incidencias/IncidenciasStats";
+import { IncidenciasTable } from "@/components/incidencias/IncidenciasTable";
 
 const Incidencias = () => {
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Incidencias</h1>
-        <p className="text-muted-foreground">Registro y seguimiento de incidencias</p>
-      </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>Módulo en desarrollo</CardTitle>
-          <CardDescription>Esta funcionalidad estará disponible próximamente</CardDescription>
-        </CardHeader>
-        <CardContent>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Incidencias</h1>
           <p className="text-muted-foreground">
-            Aquí podrás registrar incidencias, asignarlas a empleados y hacer seguimiento de su resolución.
+            Gestión de incidencias y problemas internos
           </p>
-        </CardContent>
-      </Card>
+        </div>
+        <CreateIncidenciaDialog />
+      </div>
+
+      <IncidenciasStats />
+
+      <IncidenciasTable />
     </div>
   );
 };

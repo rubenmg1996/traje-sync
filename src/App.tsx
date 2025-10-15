@@ -10,6 +10,7 @@ import Auth from "./pages/Auth";
 import Empleados from "./pages/Empleados";
 import EmpleadoDetalle from "./pages/EmpleadoDetalle";
 import Incidencias from "./pages/Incidencias";
+import IncidenciaDetalle from "./pages/IncidenciaDetalle";
 import Stock from "./pages/Stock";
 import Encargos from "./pages/Encargos";
 import Facturacion from "./pages/Facturacion";
@@ -62,6 +63,16 @@ const App = () => (
               <ProtectedRoute>
                 <Layout>
                   <Incidencias />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/incidencias/:id"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <IncidenciaDetalle />
                 </Layout>
               </ProtectedRoute>
             }
