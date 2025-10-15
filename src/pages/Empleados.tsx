@@ -3,6 +3,7 @@ import { useEmployees } from "@/hooks/useEmployees";
 import { EmployeeFormDialog } from "@/components/employees/EmployeeFormDialog";
 import { EmployeesTable } from "@/components/employees/EmployeesTable";
 import { ClockInButton } from "@/components/employees/ClockInButton";
+import { NotificationBell } from "@/components/employees/NotificationBell";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const Empleados = () => {
@@ -16,6 +17,7 @@ const Empleados = () => {
           <p className="text-muted-foreground">Gestión de empleados y fichajes</p>
         </div>
         <div className="flex gap-3">
+          <NotificationBell />
           <ClockInButton />
           <EmployeeFormDialog />
         </div>

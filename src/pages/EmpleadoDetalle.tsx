@@ -4,12 +4,25 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Clock, Mail, Phone, User } from "lucide-react";
+import { ArrowLeft, Clock, Mail, Phone, User, Edit, Trash2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format, startOfMonth, endOfMonth, subMonths, isWithinInterval } from "date-fns";
 import { es } from "date-fns/locale";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { EditClockingDialog } from "@/components/employees/EditClockingDialog";
+import { useDeleteClocking, useCurrentEmployee } from "@/hooks/useClockings";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import {
   Table,
   TableBody,
@@ -22,11 +35,15 @@ import {
 const EmpleadoDetalle = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const deleteClocking = useDeleteClocking();
+  const { data: currentEmployee } = useCurrentEmployee();
 
   const currentDate = new Date();
   const currentMonth = startOfMonth(currentDate);
   const lastMonth = startOfMonth(subMonths(currentDate, 1));
   const twoMonthsAgo = startOfMonth(subMonths(currentDate, 2));
+
+  const isAdmin = currentEmployee?.rol === "administrador";
 
   const calculateWorkedHours = (clockings: any[]) => {
     let totalMinutes = 0;
@@ -258,6 +275,7 @@ const EmpleadoDetalle = () => {
                           <Table>
                             <TableHeader>
                               <TableRow>
+                                {isAdmin && <TableHead className="min-w-[100px]">Acciones</TableHead>}
                                 <TableHead className="min-w-[200px]">
                                   Fecha y Hora
                                 </TableHead>
@@ -268,6 +286,45 @@ const EmpleadoDetalle = () => {
                             <TableBody>
                               {monthClockings.map((clocking) => (
                                 <TableRow key={clocking.id}>
+                                  {isAdmin && (
+                                    <TableCell>
+                                      <div className="flex gap-1">
+                                        <EditClockingDialog
+                                          clocking={clocking}
+                                          trigger={
+                                            <Button variant="ghost" size="icon">
+                                              <Edit className="h-4 w-4" />
+                                            </Button>
+                                          }
+                                        />
+                                        <AlertDialog>
+                                          <AlertDialogTrigger asChild>
+                                            <Button variant="ghost" size="icon">
+                                              <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                          </AlertDialogTrigger>
+                                          <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                              <AlertDialogTitle>
+                                                ¿Estás seguro?
+                                              </AlertDialogTitle>
+                                              <AlertDialogDescription>
+                                                Esta acción eliminará permanentemente este fichaje.
+                                              </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                              <AlertDialogAction
+                                                onClick={() => deleteClocking.mutate(clocking.id)}
+                                              >
+                                                Eliminar
+                                              </AlertDialogAction>
+                                            </AlertDialogFooter>
+                                          </AlertDialogContent>
+                                        </AlertDialog>
+                                      </div>
+                                    </TableCell>
+                                  )}
                                   <TableCell className="font-medium">
                                     {format(new Date(clocking.fecha_hora), "PPp", {
                                       locale: es,

@@ -67,6 +67,60 @@ export const useCreateClocking = () => {
   });
 };
 
+export const useUpdateClocking = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      fecha_hora,
+      tipo,
+    }: {
+      id: string;
+      fecha_hora: string;
+      tipo: "entrada" | "salida";
+    }) => {
+      const { data, error } = await supabase
+        .from("clockings")
+        .update({ fecha_hora, tipo })
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["clockings"] });
+      queryClient.invalidateQueries({ queryKey: ["employee-clockings"] });
+      toast.success("Fichaje actualizado correctamente");
+    },
+    onError: (error: Error) => {
+      toast.error(`Error al actualizar fichaje: ${error.message}`);
+    },
+  });
+};
+
+export const useDeleteClocking = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("clockings").delete().eq("id", id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["clockings"] });
+      queryClient.invalidateQueries({ queryKey: ["employee-clockings"] });
+      toast.success("Fichaje eliminado correctamente");
+    },
+    onError: (error: Error) => {
+      toast.error(`Error al eliminar fichaje: ${error.message}`);
+    },
+  });
+};
+
 export const useCurrentEmployee = () => {
   return useQuery({
     queryKey: ["current-employee"],
