@@ -14,16 +14,16 @@ import { Badge } from "@/components/ui/badge";
 
 export function AppHeader() {
   return (
-    <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-card px-6">
+    <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-card px-6 flex-shrink-0">
       <SidebarTrigger />
       
-      <div className="flex-1 flex items-center gap-4">
-        <div className="relative max-w-md flex-1">
+      <div className="flex-1 flex items-center gap-4 min-w-0">
+        <div className="relative max-w-md flex-1 min-w-0">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="search"
             placeholder="Buscar productos, empleados..."
-            className="pl-10 bg-background"
+            className="pl-10 bg-background w-full"
           />
         </div>
       </div>
