@@ -57,11 +57,13 @@ serve(async (req) => {
     
     if (producto.woocommerce_id) {
       // Actualizar producto existente (usar auth por query params por compatibilidad)
-      const url = `${apiBase}/${producto.woocommerce_id}?${authQuery}`;
+      // Actualizar producto existente usando endpoint batch (evita bloqueos de PUT)
+      const url = `${apiBase}/batch?${authQuery}`;
+      const batchPayload = { update: [{ id: Number(producto.woocommerce_id), ...wooProduct }] };
       wooResponse = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-HTTP-Method-Override': 'PUT' },
-        body: JSON.stringify(wooProduct),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(batchPayload),
       });
     } else {
       // Crear nuevo producto
@@ -81,16 +83,22 @@ serve(async (req) => {
 
     const wooData = await wooResponse.json();
 
-    // Actualizar el woocommerce_id en la base de datos
-    const { error: updateError } = await supabase
-      .from('productos')
-      .update({ woocommerce_id: wooData.id.toString() })
-      .eq('id', productId);
+    // Determinar el ID de WooCommerce según la operación (batch update vs create)
+    const syncedId = producto.woocommerce_id
+      ? (wooData?.update?.[0]?.id ?? Number(producto.woocommerce_id))
+      : wooData.id;
 
-    if (updateError) throw updateError;
+    // Actualizar el woocommerce_id solo si no existía previamente
+    if (!producto.woocommerce_id && syncedId) {
+      const { error: updateError } = await supabase
+        .from('productos')
+        .update({ woocommerce_id: syncedId.toString() })
+        .eq('id', productId);
+      if (updateError) throw updateError;
+    }
 
     return new Response(
-      JSON.stringify({ success: true, woocommerce_id: wooData.id }),
+      JSON.stringify({ success: true, woocommerce_id: syncedId }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
