@@ -47,7 +47,7 @@ export function ProductosTable({ search }: ProductosTableProps) {
     setSyncingId(producto.id);
     try {
       const { data, error } = await supabase.functions.invoke('sync-woocommerce', {
-        body: { producto },
+        body: { productId: producto.id },
       });
 
       if (error) throw error;
