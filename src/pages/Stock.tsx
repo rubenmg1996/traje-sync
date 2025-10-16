@@ -78,12 +78,12 @@ const Stock = () => {
             className="pl-9"
           />
         </div>
-        <Select value={categoria} onValueChange={setCategoria}>
+        <Select value={categoria || "all"} onValueChange={(value) => setCategoria(value === "all" ? "" : value)}>
           <SelectTrigger className="w-[200px]">
             <SelectValue placeholder="Todas las categorías" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Todas</SelectItem>
+            <SelectItem value="all">Todas</SelectItem>
             <SelectItem value="Vestidos de Flamenca">Vestidos de Flamenca</SelectItem>
             <SelectItem value="Complementos">Complementos</SelectItem>
             <SelectItem value="Zapatos">Zapatos</SelectItem>
