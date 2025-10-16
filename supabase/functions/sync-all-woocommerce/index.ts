@@ -18,19 +18,26 @@ serve(async (req) => {
     const consumerKey = Deno.env.get('WOOCOMMERCE_CONSUMER_KEY')!;
     const consumerSecret = Deno.env.get('WOOCOMMERCE_CONSUMER_SECRET')!;
 
+    console.log('WooCommerce URL:', woocommerceUrl);
+    console.log('Consumer Key length:', consumerKey?.length || 0);
+    console.log('Consumer Secret length:', consumerSecret?.length || 0);
+
     const supabase = createClient(supabaseUrl, supabaseKey);
-    const auth = btoa(`${consumerKey}:${consumerSecret}`);
     const baseUrl = woocommerceUrl.replace(/\/$/, '');
+    
+    // Construir URL con parámetros de autenticación
+    const productsUrl = `${baseUrl}/wp-json/wc/v3/products?per_page=100&consumer_key=${encodeURIComponent(consumerKey)}&consumer_secret=${encodeURIComponent(consumerSecret)}`;
+
+    console.log('Fetching from:', baseUrl + '/wp-json/wc/v3/products');
 
     // Obtener productos de WooCommerce
-    const wooResponse = await fetch(
-      `${baseUrl}/wp-json/wc/v3/products?per_page=100`,
-      {
-        headers: {
-          'Authorization': `Basic ${auth}`,
-        },
-      }
-    );
+    const wooResponse = await fetch(productsUrl, {
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+
+    console.log('WooCommerce response status:', wooResponse.status);
 
     if (!wooResponse.ok) {
       const errorText = await wooResponse.text();
