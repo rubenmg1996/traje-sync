@@ -70,13 +70,24 @@ export const useCreateProducto = () => {
         .single();
 
       if (error) throw error;
+
+      // Sincronizar con WooCommerce automáticamente
+      try {
+        await supabase.functions.invoke('sync-woocommerce', {
+          body: { productId: data.id }
+        });
+      } catch (syncError) {
+        console.error("Error al sincronizar con WooCommerce:", syncError);
+        // No lanzamos el error para que el producto se cree de todas formas
+      }
+
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["productos"] });
       toast({
-        title: "Producto creado",
-        description: "El producto se ha creado correctamente",
+        title: "Producto creado y sincronizado",
+        description: "El producto se ha creado y sincronizado con WooCommerce",
       });
     },
     onError: (error) => {
@@ -102,14 +113,24 @@ export const useUpdateProducto = () => {
         .single();
 
       if (error) throw error;
+
+      // Sincronizar con WooCommerce automáticamente
+      try {
+        await supabase.functions.invoke('sync-woocommerce', {
+          body: { productId: id }
+        });
+      } catch (syncError) {
+        console.error("Error al sincronizar con WooCommerce:", syncError);
+      }
+
       return data;
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["productos"] });
       queryClient.invalidateQueries({ queryKey: ["producto", variables.id] });
       toast({
-        title: "Producto actualizado",
-        description: "El producto se ha actualizado correctamente",
+        title: "Producto actualizado y sincronizado",
+        description: "El producto se ha actualizado y sincronizado con WooCommerce",
       });
     },
     onError: (error) => {
