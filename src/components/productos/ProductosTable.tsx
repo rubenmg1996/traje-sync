@@ -26,12 +26,11 @@ import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
 interface ProductosTableProps {
-  categoria?: string;
   search?: string;
 }
 
-export function ProductosTable({ categoria, search }: ProductosTableProps) {
-  const { data: productos, isLoading } = useProductos(categoria, search);
+export function ProductosTable({ search }: ProductosTableProps) {
+  const { data: productos, isLoading } = useProductos(search);
   const deleteProducto = useDeleteProducto();
   const [productoToDelete, setProductoToDelete] = useState<string | null>(null);
   const [productoToEdit, setProductoToEdit] = useState<Producto | null>(null);
@@ -88,7 +87,6 @@ export function ProductosTable({ categoria, search }: ProductosTableProps) {
             <TableRow>
               <TableHead className="w-20">Imagen</TableHead>
               <TableHead>Nombre</TableHead>
-              <TableHead>Categoría</TableHead>
               <TableHead className="text-right">Precio</TableHead>
               <TableHead className="text-center">Stock</TableHead>
               <TableHead className="text-center">Estado</TableHead>
@@ -115,7 +113,6 @@ export function ProductosTable({ categoria, search }: ProductosTableProps) {
                     )}
                   </TableCell>
                   <TableCell className="font-medium">{producto.nombre}</TableCell>
-                  <TableCell>{producto.categoria}</TableCell>
                   <TableCell className="text-right">{producto.precio.toFixed(2)} €</TableCell>
                   <TableCell className="text-center">
                     <span className={stockBajo ? "text-destructive font-bold" : ""}>

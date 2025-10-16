@@ -33,7 +33,6 @@ import { Loader2, Upload } from "lucide-react";
 const productoSchema = z.object({
   nombre: z.string().min(1, "El nombre es obligatorio"),
   descripcion: z.string().optional(),
-  categoria: z.string().min(1, "La categoría es obligatoria"),
   precio: z.coerce.number().min(0.01, "El precio debe ser mayor a 0"),
   talla: z.string().optional(),
   color: z.string().optional(),
@@ -51,17 +50,6 @@ interface ProductFormDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-const CATEGORIAS = [
-  "Vestidos de Flamenca",
-  "Complementos",
-  "Zapatos",
-  "Mantones",
-  "Peinetas",
-  "Pendientes",
-  "Flores",
-  "Otros",
-];
-
 export function ProductFormDialog({ producto, open, onOpenChange }: ProductFormDialogProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(producto?.imagen_url || null);
@@ -75,7 +63,6 @@ export function ProductFormDialog({ producto, open, onOpenChange }: ProductFormD
     defaultValues: {
       nombre: producto?.nombre || "",
       descripcion: producto?.descripcion || "",
-      categoria: producto?.categoria || "",
       precio: producto?.precio || 0,
       talla: producto?.talla || "",
       color: producto?.color || "",
@@ -91,7 +78,6 @@ export function ProductFormDialog({ producto, open, onOpenChange }: ProductFormD
       form.reset({
         nombre: producto.nombre,
         descripcion: producto.descripcion || "",
-        categoria: producto.categoria,
         precio: producto.precio,
         talla: producto.talla || "",
         color: producto.color || "",
@@ -129,7 +115,7 @@ export function ProductFormDialog({ producto, open, onOpenChange }: ProductFormD
       const productoData: any = {
         nombre: data.nombre,
         descripcion: data.descripcion || null,
-        categoria: data.categoria,
+        categoria: null,
         precio: data.precio,
         talla: data.talla || null,
         color: data.color || null,
@@ -178,31 +164,6 @@ export function ProductFormDialog({ producto, open, onOpenChange }: ProductFormD
                     <FormControl>
                       <Input {...field} placeholder="Vestido de flamenca rojo" />
                     </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="categoria"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Categoría *</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleccionar categoría" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {CATEGORIAS.map((cat) => (
-                          <SelectItem key={cat} value={cat}>
-                            {cat}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}

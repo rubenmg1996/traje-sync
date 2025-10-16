@@ -20,18 +20,14 @@ export interface Producto {
   updated_at: string;
 }
 
-export const useProductos = (categoria?: string, search?: string) => {
+export const useProductos = (search?: string) => {
   return useQuery({
-    queryKey: ["productos", categoria, search],
+    queryKey: ["productos", search],
     queryFn: async () => {
       let query = supabase
         .from("productos")
         .select("*")
         .order("created_at", { ascending: false });
-
-      if (categoria) {
-        query = query.eq("categoria", categoria);
-      }
 
       if (search) {
         query = query.ilike("nombre", `%${search}%`);
@@ -168,22 +164,10 @@ export const useProductosStats = () => {
       const productos = data as Producto[];
       const total = productos.length;
       const stockBajo = productos.filter(p => p.stock_actual < p.stock_minimo).length;
-      
-      // Agrupar por categoría
-      const categorias = productos.reduce((acc, producto) => {
-        const cat = producto.categoria;
-        if (!acc[cat]) {
-          acc[cat] = { categoria: cat, cantidad: 0, stock: 0 };
-        }
-        acc[cat].cantidad += 1;
-        acc[cat].stock += producto.stock_actual;
-        return acc;
-      }, {} as Record<string, { categoria: string; cantidad: number; stock: number }>);
 
       return {
         total,
         stockBajo,
-        categorias: Object.values(categorias),
       };
     },
   });

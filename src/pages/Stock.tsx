@@ -1,13 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Plus, RefreshCw, Search } from "lucide-react";
 import { ProductosStats } from "@/components/productos/ProductosStats";
 import { ProductosTable } from "@/components/productos/ProductosTable";
@@ -17,7 +10,6 @@ import { supabase } from "@/integrations/supabase/client";
 
 const Stock = () => {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [categoria, setCategoria] = useState<string>("");
   const [search, setSearch] = useState("");
   const [isSyncingAll, setIsSyncingAll] = useState(false);
 
@@ -68,35 +60,17 @@ const Stock = () => {
 
       <ProductosStats />
 
-      <div className="flex gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por nombre..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <Select value={categoria || "all"} onValueChange={(value) => setCategoria(value === "all" ? "" : value)}>
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Todas las categorías" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas</SelectItem>
-            <SelectItem value="Vestidos de Flamenca">Vestidos de Flamenca</SelectItem>
-            <SelectItem value="Complementos">Complementos</SelectItem>
-            <SelectItem value="Zapatos">Zapatos</SelectItem>
-            <SelectItem value="Mantones">Mantones</SelectItem>
-            <SelectItem value="Peinetas">Peinetas</SelectItem>
-            <SelectItem value="Pendientes">Pendientes</SelectItem>
-            <SelectItem value="Flores">Flores</SelectItem>
-            <SelectItem value="Otros">Otros</SelectItem>
-          </SelectContent>
-        </Select>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Buscar por nombre..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-9"
+        />
       </div>
 
-      <ProductosTable categoria={categoria} search={search} />
+      <ProductosTable search={search} />
 
       <ProductFormDialog
         open={showCreateDialog}
