@@ -193,6 +193,60 @@ export type Database = {
           },
         ]
       }
+      productos: {
+        Row: {
+          activo: boolean
+          categoria: string
+          color: string | null
+          created_at: string
+          descripcion: string | null
+          fecha_creacion: string
+          id: string
+          imagen_url: string | null
+          nombre: string
+          precio: number
+          stock_actual: number
+          stock_minimo: number
+          talla: string | null
+          updated_at: string
+          woocommerce_id: string | null
+        }
+        Insert: {
+          activo?: boolean
+          categoria: string
+          color?: string | null
+          created_at?: string
+          descripcion?: string | null
+          fecha_creacion?: string
+          id?: string
+          imagen_url?: string | null
+          nombre: string
+          precio: number
+          stock_actual?: number
+          stock_minimo?: number
+          talla?: string | null
+          updated_at?: string
+          woocommerce_id?: string | null
+        }
+        Update: {
+          activo?: boolean
+          categoria?: string
+          color?: string | null
+          created_at?: string
+          descripcion?: string | null
+          fecha_creacion?: string
+          id?: string
+          imagen_url?: string | null
+          nombre?: string
+          precio?: number
+          stock_actual?: number
+          stock_minimo?: number
+          talla?: string | null
+          updated_at?: string
+          woocommerce_id?: string | null
+        }
+        Relationships: []
+      }
       work_schedules: {
         Row: {
           created_at: string | null
