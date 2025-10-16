@@ -59,8 +59,8 @@ serve(async (req) => {
       // Actualizar producto existente (usar auth por query params por compatibilidad)
       const url = `${apiBase}/${producto.woocommerce_id}?${authQuery}`;
       wooResponse = await fetch(url, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-HTTP-Method-Override': 'PUT' },
         body: JSON.stringify(wooProduct),
       });
     } else {
