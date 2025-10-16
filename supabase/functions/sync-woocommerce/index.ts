@@ -13,6 +13,12 @@ serve(async (req) => {
 
   try {
     const { productId } = await req.json();
+    if (!productId) {
+      return new Response(
+        JSON.stringify({ error: 'productId is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -43,37 +49,28 @@ serve(async (req) => {
       images: producto.imagen_url ? [{ src: producto.imagen_url }] : [],
     };
 
-    const auth = btoa(`${consumerKey}:${consumerSecret}`);
     const baseUrl = woocommerceUrl.replace(/\/$/, '');
+    const apiBase = `${baseUrl}/wp-json/wc/v3/products`;
+    const authQuery = `consumer_key=${encodeURIComponent(consumerKey)}&consumer_secret=${encodeURIComponent(consumerSecret)}`;
     
     let wooResponse;
     
     if (producto.woocommerce_id) {
-      // Actualizar producto existente
-      wooResponse = await fetch(
-        `${baseUrl}/wp-json/wc/v3/products/${producto.woocommerce_id}`,
-        {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Basic ${auth}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(wooProduct),
-        }
-      );
+      // Actualizar producto existente (usar auth por query params por compatibilidad)
+      const url = `${apiBase}/${producto.woocommerce_id}?${authQuery}`;
+      wooResponse = await fetch(url, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(wooProduct),
+      });
     } else {
       // Crear nuevo producto
-      wooResponse = await fetch(
-        `${baseUrl}/wp-json/wc/v3/products`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Basic ${auth}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(wooProduct),
-        }
-      );
+      const url = `${apiBase}?${authQuery}`;
+      wooResponse = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(wooProduct),
+      });
     }
 
     if (!wooResponse.ok) {
