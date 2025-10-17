@@ -49,6 +49,18 @@ serve(async (req) => {
       images: producto.imagen_url ? [{ src: producto.imagen_url }] : [],
     };
 
+    // Campos seguros para actualización por batch (omitimos categorías para evitar errores de taxonomía)
+    const wooUpdateProduct = {
+      id: Number(producto.woocommerce_id),
+      name: wooProduct.name,
+      description: wooProduct.description,
+      regular_price: wooProduct.regular_price,
+      stock_quantity: wooProduct.stock_quantity,
+      manage_stock: wooProduct.manage_stock,
+      status: wooProduct.status,
+      images: wooProduct.images,
+    };
+
     const baseUrl = woocommerceUrl.replace(/\/$/, '');
     const apiBase = `${baseUrl}/wp-json/wc/v3/products`;
     const authQuery = `consumer_key=${encodeURIComponent(consumerKey)}&consumer_secret=${encodeURIComponent(consumerSecret)}`;
@@ -59,7 +71,7 @@ serve(async (req) => {
       // Actualizar producto existente (usar auth por query params por compatibilidad)
       // Actualizar producto existente usando endpoint batch (evita bloqueos de PUT)
       const url = `${apiBase}/batch?${authQuery}`;
-      const batchPayload = { update: [{ id: Number(producto.woocommerce_id), ...wooProduct }] };
+      const batchPayload = { update: [wooUpdateProduct] };
       wooResponse = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -82,6 +94,25 @@ serve(async (req) => {
     }
 
     const wooData = await wooResponse.json();
+    console.log('WooCommerce response payload:', wooData);
+
+    // Validar respuesta por operación
+    if (producto.woocommerce_id) {
+      const updatedItem = wooData?.update?.[0];
+      if (!updatedItem) {
+        console.error('WooCommerce batch update returned no items', wooData);
+        throw new Error('WooCommerce batch update returned no items');
+      }
+      if ((updatedItem as any)?.error) {
+        console.error('WooCommerce update error:', (updatedItem as any).error);
+        throw new Error(`WooCommerce update failed: ${(updatedItem as any).error?.message || 'unknown error'}`);
+      }
+    } else {
+      if (!wooData?.id) {
+        console.error('WooCommerce create error payload:', wooData);
+        throw new Error('WooCommerce create failed: missing id in response');
+      }
+    }
 
     // Determinar el ID de WooCommerce según la operación (batch update vs create)
     const syncedId = producto.woocommerce_id

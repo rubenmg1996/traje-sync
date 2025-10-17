@@ -127,25 +127,26 @@ export const useUpdateProducto = () => {
       // Sincronizar con WooCommerce después de actualizar
       if (variables.id) {
         try {
-          await supabase.functions.invoke('sync-woocommerce', {
+          const { data: fnRes, error: fnErr } = await supabase.functions.invoke('sync-woocommerce', {
             body: { productId: variables.id }
           });
+          if (fnErr) throw fnErr as any;
           toast({
-            title: "Producto actualizado y sincronizado",
-            description: "El producto se ha actualizado y sincronizado con WooCommerce",
+            title: 'Producto actualizado y sincronizado',
+            description: 'El producto se ha actualizado y sincronizado con WooCommerce',
           });
         } catch (syncError) {
-          console.error("Error al sincronizar con WooCommerce:", syncError);
+          console.error('Error al sincronizar con WooCommerce:', syncError);
           toast({
-            title: "Producto actualizado",
-            description: "El producto se actualizó pero hubo un error al sincronizar con WooCommerce",
-            variant: "destructive",
+            title: 'Producto actualizado',
+            description: 'El producto se actualizó pero hubo un error al sincronizar con WooCommerce',
+            variant: 'destructive',
           });
         }
       }
       
-      queryClient.invalidateQueries({ queryKey: ["productos"] });
-      queryClient.invalidateQueries({ queryKey: ["producto", variables.id] });
+      queryClient.invalidateQueries({ queryKey: ['productos'] });
+      queryClient.invalidateQueries({ queryKey: ['producto', variables.id] });
     },
     onError: (error) => {
       toast({
