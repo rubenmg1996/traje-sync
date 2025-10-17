@@ -49,7 +49,7 @@ serve(async (req) => {
       images: producto.imagen_url ? [{ src: producto.imagen_url }] : [],
     };
 
-    // Campos seguros para actualización por batch (omitimos categorías para evitar errores de taxonomía)
+    // Campos seguros para actualización por batch (omitimos categorías e imágenes para evitar errores de taxonomía y 403 al reimportar)
     const wooUpdateProduct = {
       id: Number(producto.woocommerce_id),
       name: wooProduct.name,
@@ -58,7 +58,6 @@ serve(async (req) => {
       stock_quantity: wooProduct.stock_quantity,
       manage_stock: wooProduct.manage_stock,
       status: wooProduct.status,
-      images: wooProduct.images,
     };
 
     const baseUrl = woocommerceUrl.replace(/\/$/, '');
