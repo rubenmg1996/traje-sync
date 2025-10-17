@@ -50,6 +50,7 @@ serve(async (req) => {
 
     let importedCount = 0;
     let updatedCount = 0;
+    let deletedCount = 0;
 
     for (const wooProduct of wooProducts) {
       // Buscar si el producto ya existe por woocommerce_id
@@ -100,11 +101,45 @@ serve(async (req) => {
       }
     }
 
+    // Eliminar localmente los productos que ya no existen en WooCommerce
+    try {
+      const wooIdsSet = new Set<string>(wooProducts.map((p: any) => p.id?.toString()));
+      const { data: localProducts, error: fetchLocalError } = await supabase
+        .from('productos')
+        .select('id, woocommerce_id');
+
+      if (fetchLocalError) {
+        console.error('Error fetching local products for diff:', fetchLocalError);
+      } else if (localProducts) {
+        const toDeleteIds = localProducts
+          .filter((p: any) => p.woocommerce_id && !wooIdsSet.has(p.woocommerce_id))
+          .map((p: any) => p.id);
+
+        if (toDeleteIds.length > 0) {
+          console.log(`Deleting ${toDeleteIds.length} local products missing in WooCommerce`);
+          const { error: deleteError } = await supabase
+            .from('productos')
+            .delete()
+            .in('id', toDeleteIds);
+          if (deleteError) {
+            console.error('Error deleting local products not in WooCommerce:', deleteError);
+          } else {
+            deletedCount = toDeleteIds.length;
+          }
+        } else {
+          console.log('No local products to delete (all present in WooCommerce)');
+        }
+      }
+    } catch (e) {
+      console.error('Exception while deleting local products:', e);
+    }
+
     return new Response(
       JSON.stringify({ 
         success: true, 
         imported: importedCount,
         updated: updatedCount,
+        deleted: deletedCount,
         total: wooProducts.length 
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
