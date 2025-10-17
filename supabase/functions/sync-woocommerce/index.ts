@@ -45,15 +45,30 @@ serve(async (req) => {
         );
       }
 
-      // Eliminar de WooCommerce
-      const deleteUrl = `${woocommerceUrl.replace(/\/$/, '')}/wp-json/wc/v3/products/${producto.woocommerce_id}?force=true&consumer_key=${encodeURIComponent(consumerKey)}&consumer_secret=${encodeURIComponent(consumerSecret)}`;
-      const deleteResponse = await fetch(deleteUrl, { method: 'DELETE' });
+      // Eliminar de WooCommerce usando batch endpoint
+      const baseUrl = woocommerceUrl.replace(/\/$/, '');
+      const apiBase = `${baseUrl}/wp-json/wc/v3/products`;
+      const authQuery = `consumer_key=${encodeURIComponent(consumerKey)}&consumer_secret=${encodeURIComponent(consumerSecret)}`;
+      const deleteUrl = `${apiBase}/batch?${authQuery}`;
+      
+      const batchPayload = { 
+        delete: [Number(producto.woocommerce_id)]
+      };
+      
+      const deleteResponse = await fetch(deleteUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(batchPayload),
+      });
 
       if (!deleteResponse.ok) {
         const errorText = await deleteResponse.text();
         console.error('WooCommerce delete error:', errorText);
         throw new Error(`WooCommerce delete failed: ${deleteResponse.status} - ${errorText}`);
       }
+
+      const deleteData = await deleteResponse.json();
+      console.log('WooCommerce delete response:', deleteData);
 
       return new Response(
         JSON.stringify({ success: true, message: 'Product deleted from WooCommerce' }),
