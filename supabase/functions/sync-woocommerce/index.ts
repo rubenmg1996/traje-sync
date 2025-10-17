@@ -45,35 +45,90 @@ serve(async (req) => {
         );
       }
 
-      // Eliminar de WooCommerce usando batch endpoint
+      // Eliminar de WooCommerce usando batch endpoint con respaldo a "trash"
       const baseUrl = woocommerceUrl.replace(/\/$/, '');
       const apiBase = `${baseUrl}/wp-json/wc/v3/products`;
       const authQuery = `consumer_key=${encodeURIComponent(consumerKey)}&consumer_secret=${encodeURIComponent(consumerSecret)}`;
       const deleteUrl = `${apiBase}/batch?${authQuery}`;
-      
-      const batchPayload = { 
-        delete: [Number(producto.woocommerce_id)]
+
+      const productNumericId = Number(producto.woocommerce_id);
+
+      const batchPayload = {
+        delete: [productNumericId],
       };
-      
-      const deleteResponse = await fetch(deleteUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(batchPayload),
-      });
 
-      if (!deleteResponse.ok) {
-        const errorText = await deleteResponse.text();
-        console.error('WooCommerce delete error:', errorText);
-        throw new Error(`WooCommerce delete failed: ${deleteResponse.status} - ${errorText}`);
+      const commonHeaders = {
+        'Content-Type': 'application/json',
+        'User-Agent': 'LovableCloud/woocommerce-sync',
+      };
+
+      const attemptTrash = async () => {
+        const trashPayload = { update: [{ id: productNumericId, status: 'trash' }] };
+        const trashResp = await fetch(deleteUrl, {
+          method: 'POST',
+          headers: commonHeaders,
+          body: JSON.stringify(trashPayload),
+        });
+        if (!trashResp.ok) {
+          const t = await trashResp.text();
+          console.error('WooCommerce move to trash error:', t);
+          throw new Error(`WooCommerce move to trash failed: ${trashResp.status} - ${t}`);
+        }
+        const tData = await trashResp.json();
+        const updatedItem = tData?.update?.[0];
+        if ((updatedItem as any)?.error) {
+          console.error('WooCommerce move to trash API error:', (updatedItem as any).error);
+          throw new Error(`WooCommerce move to trash failed: ${(updatedItem as any).error?.message || 'unknown error'}`);
+        }
+        return tData;
+      };
+
+      try {
+        const deleteResponse = await fetch(deleteUrl, {
+          method: 'POST',
+          headers: commonHeaders,
+          body: JSON.stringify(batchPayload),
+        });
+
+        if (!deleteResponse.ok) {
+          const errorText = await deleteResponse.text();
+          console.error('WooCommerce delete error (batch):', errorText);
+          // Respaldo: mover a papelera si el borrado falla (p.ej. 405)
+          const tData = await attemptTrash();
+          console.log('WooCommerce move to trash response:', tData);
+          return new Response(
+            JSON.stringify({ success: true, message: 'Product moved to trash in WooCommerce' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const deleteData = await deleteResponse.json();
+        console.log('WooCommerce delete response:', deleteData);
+        const deletedItem = deleteData?.delete?.[0];
+        if ((deletedItem as any)?.error) {
+          console.error('WooCommerce delete API error (batch):', (deletedItem as any).error);
+          // Respaldo: mover a papelera
+          const tData = await attemptTrash();
+          console.log('WooCommerce move to trash response:', tData);
+          return new Response(
+            JSON.stringify({ success: true, message: 'Product moved to trash in WooCommerce' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        return new Response(
+          JSON.stringify({ success: true, message: 'Product deleted from WooCommerce' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } catch (err) {
+        console.error('WooCommerce delete exception, attempting trash:', err);
+        const tData = await attemptTrash();
+        console.log('WooCommerce move to trash response:', tData);
+        return new Response(
+          JSON.stringify({ success: true, message: 'Product moved to trash in WooCommerce' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
-
-      const deleteData = await deleteResponse.json();
-      console.log('WooCommerce delete response:', deleteData);
-
-      return new Response(
-        JSON.stringify({ success: true, message: 'Product deleted from WooCommerce' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
     }
 
     // Obtener producto de la base de datos para crear/actualizar
