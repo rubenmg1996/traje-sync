@@ -49,9 +49,10 @@ export const useProducto = (id: string) => {
         .from("productos")
         .select("*")
         .eq("id", id)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
+      if (!data) throw new Error("Producto no encontrado");
       return data as Producto;
     },
     enabled: !!id,
@@ -67,9 +68,10 @@ export const useCreateProducto = () => {
         .from("productos")
         .insert(producto)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
+      if (!data) throw new Error("No se pudo crear el producto");
       return data;
     },
     onSuccess: async (data) => {
@@ -115,9 +117,10 @@ export const useUpdateProducto = () => {
         .update(producto)
         .eq("id", id)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
+      if (!data) throw new Error("No se pudo actualizar el producto");
       return data;
     },
     onSuccess: async (data, variables) => {
