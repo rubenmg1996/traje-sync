@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { productId } = await req.json();
+    const { productId, operation = 'sync' } = await req.json();
     if (!productId) {
       return new Response(
         JSON.stringify({ error: 'productId is required' }),
@@ -28,7 +28,40 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Obtener producto de la base de datos
+    // Si es operación de eliminación, solo necesitamos el woocommerce_id
+    if (operation === 'delete') {
+      const { data: producto, error: fetchError } = await supabase
+        .from('productos')
+        .select('woocommerce_id')
+        .eq('id', productId)
+        .single();
+
+      if (fetchError) throw fetchError;
+      
+      if (!producto.woocommerce_id) {
+        return new Response(
+          JSON.stringify({ success: true, message: 'Product has no WooCommerce ID' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Eliminar de WooCommerce
+      const deleteUrl = `${woocommerceUrl.replace(/\/$/, '')}/wp-json/wc/v3/products/${producto.woocommerce_id}?force=true&consumer_key=${encodeURIComponent(consumerKey)}&consumer_secret=${encodeURIComponent(consumerSecret)}`;
+      const deleteResponse = await fetch(deleteUrl, { method: 'DELETE' });
+
+      if (!deleteResponse.ok) {
+        const errorText = await deleteResponse.text();
+        console.error('WooCommerce delete error:', errorText);
+        throw new Error(`WooCommerce delete failed: ${deleteResponse.status} - ${errorText}`);
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, message: 'Product deleted from WooCommerce' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Obtener producto de la base de datos para crear/actualizar
     const { data: producto, error: fetchError } = await supabase
       .from('productos')
       .select('*')

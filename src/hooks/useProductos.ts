@@ -163,6 +163,17 @@ export const useDeleteProducto = () => {
 
   return useMutation({
     mutationFn: async (id: string) => {
+      // Primero intentar eliminar de WooCommerce si tiene woocommerce_id
+      try {
+        await supabase.functions.invoke('sync-woocommerce', {
+          body: { productId: id, operation: 'delete' }
+        });
+      } catch (syncError) {
+        console.error('Error al eliminar de WooCommerce:', syncError);
+        // Continuamos con la eliminación local aunque falle en WooCommerce
+      }
+
+      // Luego eliminar de la base de datos local
       const { error } = await supabase
         .from("productos")
         .delete()
@@ -174,7 +185,7 @@ export const useDeleteProducto = () => {
       queryClient.invalidateQueries({ queryKey: ["productos"] });
       toast({
         title: "Producto eliminado",
-        description: "El producto se ha eliminado correctamente",
+        description: "El producto se ha eliminado de la aplicación y WooCommerce",
       });
     },
     onError: (error) => {
