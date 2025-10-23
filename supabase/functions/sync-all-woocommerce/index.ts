@@ -56,16 +56,12 @@ serve(async (req) => {
       // Buscar si el producto ya existe por woocommerce_id
       const { data: existing } = await supabase
         .from('productos')
-        .select('id, imagen_url')
+        .select('id')
         .eq('woocommerce_id', wooProduct.id.toString())
         .maybeSingle();
 
       const categoria = wooProduct.categories?.[0]?.name || 'Otros';
       const imagenUrl = wooProduct.images?.[0]?.src || null;
-      
-      // Preservar imagen de Supabase Storage si existe
-      const isSupabaseImage = existing?.imagen_url && existing.imagen_url.includes('supabase.co/storage');
-      const finalImageUrl = isSupabaseImage ? existing.imagen_url : imagenUrl;
 
       const productoData = {
         nombre: wooProduct.name,
@@ -75,7 +71,7 @@ serve(async (req) => {
         stock_actual: wooProduct.stock_quantity || 0,
         stock_minimo: 5,
         activo: wooProduct.status === 'publish',
-        imagen_url: finalImageUrl,
+        imagen_url: imagenUrl,
         woocommerce_id: wooProduct.id.toString(),
       };
 
