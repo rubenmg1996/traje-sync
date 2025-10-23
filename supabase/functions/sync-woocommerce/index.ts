@@ -189,7 +189,7 @@ serve(async (req) => {
               const fileName = `wc-${producto.woocommerce_id || producto.id}-${Date.now()}.${extFromType}`;
               const { error: uploadError } = await supabase.storage
                 .from('productos')
-                .upload(fileName, bytes, { contentType, upsert: true });
+                .upload(fileName, arrayBuffer, { contentType, upsert: true });
               if (!uploadError) {
                 const { data: pub } = supabase.storage.from('productos').getPublicUrl(fileName);
                 finalImageUrl = pub.publicUrl;
