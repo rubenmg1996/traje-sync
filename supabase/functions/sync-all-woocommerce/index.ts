@@ -76,7 +76,22 @@ serve(async (req) => {
           let src = imagenUrl;
           let resImg = await fetch(src, { headers });
 
-          // If origin blocks .webp or not found, try common alternatives
+          // Preferir no-WEBP aunque sea accesible (mejor compatibilidad con Woo/API y dispositivos)
+          if (resImg.ok && (src.endsWith('.webp') || (resImg.headers.get('content-type') || '').includes('webp'))) {
+            for (const ext of ['jpg', 'jpeg', 'png']) {
+              const alt = src.replace('.webp', `.${ext}`);
+              try {
+                const tryResp = await fetch(alt, { headers });
+                if (tryResp.ok) {
+                  resImg = tryResp;
+                  src = alt;
+                  break;
+                }
+              } catch (_) { /* ignore and continue */ }
+            }
+          }
+
+          // Si el origen bloquea .webp o no existe, probar alternativas
           if (!resImg.ok && src.endsWith('.webp')) {
             for (const ext of ['jpg', 'jpeg', 'png']) {
               const alt = src.replace('.webp', `.${ext}`);

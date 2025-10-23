@@ -163,6 +163,21 @@ serve(async (req) => {
             let currentSrc: string = wooSrc;
             let resImg = await fetch(currentSrc, { headers });
 
+            // Preferir no-WEBP aunque sea accesible
+            if (resImg.ok && (currentSrc.endsWith('.webp') || (resImg.headers.get('content-type') || '').includes('webp'))) {
+              for (const ext of ['jpg', 'jpeg', 'png']) {
+                const altCandidate = currentSrc.replace('.webp', `.${ext}`);
+                try {
+                  const tryResp = await fetch(altCandidate, { headers });
+                  if (tryResp.ok) {
+                    resImg = tryResp;
+                    currentSrc = altCandidate;
+                    break;
+                  }
+                } catch (_) { /* ignore */ }
+              }
+            }
+
             // Fallback: si es .webp y falla, probar jpg/jpeg/png
             if (!resImg.ok && currentSrc.endsWith('.webp')) {
               for (const ext of ['jpg', 'jpeg', 'png']) {
