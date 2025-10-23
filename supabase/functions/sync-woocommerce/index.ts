@@ -140,9 +140,9 @@ serve(async (req) => {
 
     if (fetchError) throw fetchError;
 
-    // Obtener imagen desde WooCommerce y espejarla en nuestro Storage
+    // Respetar imagen local si existe; solo espejar desde WooCommerce cuando NO haya imagen local
     let finalImageUrl: string | null = producto.imagen_url || null;
-    if (producto.woocommerce_id) {
+    if (!finalImageUrl && producto.woocommerce_id) {
       try {
         const baseWooUrl = woocommerceUrl.replace(/\/$/, '');
         const authQuery = `consumer_key=${encodeURIComponent(consumerKey)}&consumer_secret=${encodeURIComponent(consumerSecret)}`;
@@ -188,13 +188,14 @@ serve(async (req) => {
                 : (currentSrc.split('.').pop()?.split('?')[0] || 'img');
               const fileName = `wc-${producto.woocommerce_id || producto.id}-${Date.now()}.${extFromType}`;
               const blob = new Blob([bytes], { type: contentType });
-              const { data: upData, error: uploadError } = await supabase.storage
+              const { error: uploadError } = await supabase.storage
                 .from('productos')
                 .upload(fileName, blob, { contentType, upsert: true });
               if (!uploadError) {
                 const { data: pub } = supabase.storage.from('productos').getPublicUrl(fileName);
-                console.log('Uploaded image to storage (single):', fileName);
+                console.log('Uploaded image to storage (single, mirrored):', fileName);
                 finalImageUrl = pub.publicUrl;
+                // Persistir solo porque no teníamos una imagen local
                 const { error: imgUpdateErr } = await supabase
                   .from('productos')
                   .update({ imagen_url: finalImageUrl })
@@ -215,7 +216,9 @@ serve(async (req) => {
       }
     }
 
-    // Preparar datos para WooCommerce (no enviamos imágenes para evitar errores de tipo)
+
+    // Preparar datos para WooCommerce, incluyendo imagen cuando esté disponible
+    const images = finalImageUrl ? [{ src: finalImageUrl }] : [];
     const wooProduct = {
       name: producto.nombre,
       description: producto.descripcion || '',
@@ -224,9 +227,10 @@ serve(async (req) => {
       manage_stock: true,
       categories: producto.categoria ? [{ name: producto.categoria }] : [],
       status: producto.activo ? 'publish' : 'draft',
+      images,
     };
 
-    // Para actualizaciones no enviamos imágenes para evitar errores de tipo en WooCommerce
+    // Para actualizaciones enviamos también las imágenes si existen
     const wooUpdateProduct = {
       id: Number(producto.woocommerce_id),
       name: wooProduct.name,
@@ -235,6 +239,7 @@ serve(async (req) => {
       stock_quantity: wooProduct.stock_quantity,
       manage_stock: wooProduct.manage_stock,
       status: wooProduct.status,
+      images,
     };
 
     const baseUrl = woocommerceUrl.replace(/\/$/, '');

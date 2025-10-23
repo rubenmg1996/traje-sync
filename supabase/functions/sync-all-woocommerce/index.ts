@@ -63,9 +63,9 @@ serve(async (req) => {
       const categoria = wooProduct.categories?.[0]?.name || 'Otros';
       let imagenUrl = wooProduct.images?.[0]?.src || null;
 
-      // Mirror WooCommerce image into Storage to avoid hotlink/CORS/webp issues
-      let finalImageUrl = imagenUrl || (existing?.imagen_url ?? null);
-      if (imagenUrl) {
+      // Preferir imagen local existente; solo espejar desde WooCommerce si no hay imagen local
+      let finalImageUrl = (existing?.imagen_url ?? null) || (imagenUrl || null);
+      if (!existing?.imagen_url && imagenUrl) {
         try {
           const headers = {
             'Accept': 'image/*',
