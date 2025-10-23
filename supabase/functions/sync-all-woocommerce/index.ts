@@ -56,7 +56,7 @@ serve(async (req) => {
       // Buscar si el producto ya existe por woocommerce_id
       const { data: existing } = await supabase
         .from('productos')
-        .select('id')
+        .select('id, imagen_url')
         .eq('woocommerce_id', wooProduct.id.toString())
         .maybeSingle();
 
@@ -64,10 +64,33 @@ serve(async (req) => {
       let imagenUrl = wooProduct.images?.[0]?.src || null;
 
       // Mirror WooCommerce image into Storage to avoid hotlink/CORS/webp issues
-      let finalImageUrl = imagenUrl;
+      let finalImageUrl = imagenUrl || (existing?.imagen_url ?? null);
       if (imagenUrl) {
         try {
-          const resImg = await fetch(imagenUrl);
+          const headers = {
+            'Accept': 'image/*',
+            'User-Agent': 'Mozilla/5.0 (compatible; LovableSync/1.0; +https://lovable.dev)',
+            'Referer': baseUrl,
+          } as const;
+
+          let src = imagenUrl;
+          let resImg = await fetch(src, { headers });
+
+          // If origin blocks .webp or not found, try common alternatives
+          if (!resImg.ok && src.endsWith('.webp')) {
+            for (const ext of ['jpg', 'jpeg', 'png']) {
+              const alt = src.replace('.webp', `.${ext}`);
+              try {
+                const tryResp = await fetch(alt, { headers });
+                if (tryResp.ok) {
+                  resImg = tryResp;
+                  src = alt;
+                  break;
+                }
+              } catch (_) { /* ignore and continue */ }
+            }
+          }
+
           if (resImg.ok) {
             const contentType = resImg.headers.get('content-type') || 'application/octet-stream';
             const arrayBuffer = await resImg.arrayBuffer();
@@ -75,7 +98,7 @@ serve(async (req) => {
             const extFromType = contentType.includes('webp') ? 'webp'
               : contentType.includes('jpeg') ? 'jpg'
               : contentType.includes('png') ? 'png'
-              : (imagenUrl.split('.').pop()?.split('?')[0] || 'img');
+              : (src.split('.').pop()?.split('?')[0] || 'img');
             const fileName = `wc-${wooProduct.id}-${Date.now()}.${extFromType}`;
             const { error: uploadError } = await supabase.storage
               .from('productos')
@@ -87,7 +110,7 @@ serve(async (req) => {
               console.error('Error uploading mirrored image:', uploadError);
             }
           } else {
-            console.warn('Remote image not reachable:', imagenUrl, resImg.status);
+            console.warn('Remote image not reachable:', src, resImg.status);
           }
         } catch (e) {
           console.error('Mirror image error:', e);

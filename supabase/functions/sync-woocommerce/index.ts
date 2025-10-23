@@ -140,6 +140,64 @@ serve(async (req) => {
 
     if (fetchError) throw fetchError;
 
+    // Preparar imagen: si no es de nuestro storage, intentar espejarla para evitar hotlink/CORS/webp
+    let finalImageUrl: string | null = producto.imagen_url || null;
+    if (producto.imagen_url && !producto.imagen_url.includes('supabase.co/storage')) {
+      try {
+        const headers = {
+          'Accept': 'image/*',
+          'User-Agent': 'Mozilla/5.0 (compatible; LovableSync/1.0; +https://lovable.dev)',
+          'Referer': woocommerceUrl,
+        } as const;
+
+        let src = producto.imagen_url;
+        let resImg = await fetch(src, { headers });
+        if (!resImg.ok && src.endsWith('.webp')) {
+          for (const ext of ['jpg', 'jpeg', 'png']) {
+            const alt = src.replace('.webp', `.${ext}`);
+            try {
+              const tryResp = await fetch(alt, { headers });
+              if (tryResp.ok) {
+                resImg = tryResp;
+                src = alt;
+                break;
+              }
+            } catch (_) { /* ignore */ }
+          }
+        }
+
+        if (resImg.ok) {
+          const contentType = resImg.headers.get('content-type') || 'application/octet-stream';
+          const arrayBuffer = await resImg.arrayBuffer();
+          const bytes = new Uint8Array(arrayBuffer);
+          const extFromType = contentType.includes('webp') ? 'webp'
+            : contentType.includes('jpeg') ? 'jpg'
+            : contentType.includes('png') ? 'png'
+            : (src.split('.').pop()?.split('?')[0] || 'img');
+          const fileName = `wc-${producto.woocommerce_id || producto.id}-${Date.now()}.${extFromType}`;
+          const { error: uploadError } = await supabase.storage
+            .from('productos')
+            .upload(fileName, bytes, { contentType, upsert: true });
+          if (!uploadError) {
+            const { data: pub } = supabase.storage.from('productos').getPublicUrl(fileName);
+            finalImageUrl = pub.publicUrl;
+            // Persistir en DB para que el frontend use siempre esta versión
+            const { error: imgUpdateErr } = await supabase
+              .from('productos')
+              .update({ imagen_url: finalImageUrl })
+              .eq('id', productId);
+            if (imgUpdateErr) console.error('Error updating producto.imagen_url:', imgUpdateErr);
+          } else {
+            console.error('Error uploading mirrored image (single):', uploadError);
+          }
+        } else {
+          console.warn('Remote image not reachable (single):', src, resImg.status);
+        }
+      } catch (e) {
+        console.error('Mirror image error (single):', e);
+      }
+    }
+
     // Preparar datos para WooCommerce
     const wooProduct = {
       name: producto.nombre,
@@ -149,11 +207,11 @@ serve(async (req) => {
       manage_stock: true,
       categories: producto.categoria ? [{ name: producto.categoria }] : [],
       status: producto.activo ? 'publish' : 'draft',
-      images: producto.imagen_url ? [{ src: producto.imagen_url }] : [],
+      images: finalImageUrl ? [{ src: finalImageUrl }] : [],
     };
 
     // Para actualizaciones: solo incluir imágenes si son de Supabase (no de WooCommerce, evita 403)
-    const isSupabaseImage = producto.imagen_url && producto.imagen_url.includes('supabase.co/storage');
+    const isSupabaseImage = !!finalImageUrl && finalImageUrl.includes('supabase.co/storage');
     const wooUpdateProduct = {
       id: Number(producto.woocommerce_id),
       name: wooProduct.name,
