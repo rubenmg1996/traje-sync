@@ -140,65 +140,80 @@ serve(async (req) => {
 
     if (fetchError) throw fetchError;
 
-    // Preparar imagen: si no es de nuestro storage, intentar espejarla para evitar hotlink/CORS/webp
+    // Obtener imagen desde WooCommerce y espejarla en nuestro Storage
     let finalImageUrl: string | null = producto.imagen_url || null;
-    if (producto.imagen_url && !producto.imagen_url.includes('supabase.co/storage')) {
+    if (producto.woocommerce_id) {
       try {
-        const headers = {
-          'Accept': 'image/*',
-          'User-Agent': 'Mozilla/5.0 (compatible; LovableSync/1.0; +https://lovable.dev)',
-          'Referer': woocommerceUrl,
-        } as const;
+        const baseWooUrl = woocommerceUrl.replace(/\/$/, '');
+        const authQuery = `consumer_key=${encodeURIComponent(consumerKey)}&consumer_secret=${encodeURIComponent(consumerSecret)}`;
+        const getUrl = `${baseWooUrl}/wp-json/wc/v3/products/${Number(producto.woocommerce_id)}?${authQuery}`;
 
-        let src = producto.imagen_url;
-        let resImg = await fetch(src, { headers });
-        if (!resImg.ok && src.endsWith('.webp')) {
-          for (const ext of ['jpg', 'jpeg', 'png']) {
-            const alt = src.replace('.webp', `.${ext}`);
-            try {
-              const tryResp = await fetch(alt, { headers });
-              if (tryResp.ok) {
-                resImg = tryResp;
-                src = alt;
-                break;
+        const wcResp = await fetch(getUrl, { headers: { 'Accept': 'application/json' } });
+        if (wcResp.ok) {
+          const wcData = await wcResp.json();
+          const wooSrc: string | null = wcData?.images?.[0]?.src || null;
+
+          if (wooSrc) {
+            const headers = {
+              'Accept': 'image/*',
+              'User-Agent': 'Mozilla/5.0 (compatible; LovableSync/1.0; +https://lovable.dev)',
+              'Referer': baseWooUrl,
+            } as const;
+
+            let currentSrc: string = wooSrc;
+            let resImg = await fetch(currentSrc, { headers });
+
+            // Fallback: si es .webp y falla, probar jpg/jpeg/png
+            if (!resImg.ok && currentSrc.endsWith('.webp')) {
+              for (const ext of ['jpg', 'jpeg', 'png']) {
+                const altCandidate = currentSrc.replace('.webp', `.${ext}`);
+                try {
+                  const tryResp = await fetch(altCandidate, { headers });
+                  if (tryResp.ok) {
+                    resImg = tryResp;
+                    currentSrc = altCandidate;
+                    break;
+                  }
+                } catch (_) { /* ignore */ }
               }
-            } catch (_) { /* ignore */ }
-          }
-        }
+            }
 
-        if (resImg.ok) {
-          const contentType = resImg.headers.get('content-type') || 'application/octet-stream';
-          const arrayBuffer = await resImg.arrayBuffer();
-          const bytes = new Uint8Array(arrayBuffer);
-          const extFromType = contentType.includes('webp') ? 'webp'
-            : contentType.includes('jpeg') ? 'jpg'
-            : contentType.includes('png') ? 'png'
-            : (src.split('.').pop()?.split('?')[0] || 'img');
-          const fileName = `wc-${producto.woocommerce_id || producto.id}-${Date.now()}.${extFromType}`;
-          const { error: uploadError } = await supabase.storage
-            .from('productos')
-            .upload(fileName, bytes, { contentType, upsert: true });
-          if (!uploadError) {
-            const { data: pub } = supabase.storage.from('productos').getPublicUrl(fileName);
-            finalImageUrl = pub.publicUrl;
-            // Persistir en DB para que el frontend use siempre esta versión
-            const { error: imgUpdateErr } = await supabase
-              .from('productos')
-              .update({ imagen_url: finalImageUrl })
-              .eq('id', productId);
-            if (imgUpdateErr) console.error('Error updating producto.imagen_url:', imgUpdateErr);
-          } else {
-            console.error('Error uploading mirrored image (single):', uploadError);
+            if (resImg.ok) {
+              const contentType = resImg.headers.get('content-type') || 'application/octet-stream';
+              const arrayBuffer = await resImg.arrayBuffer();
+              const bytes = new Uint8Array(arrayBuffer);
+              const extFromType = contentType.includes('webp') ? 'webp'
+                : contentType.includes('jpeg') ? 'jpg'
+                : contentType.includes('png') ? 'png'
+                : (currentSrc.split('.').pop()?.split('?')[0] || 'img');
+              const fileName = `wc-${producto.woocommerce_id || producto.id}-${Date.now()}.${extFromType}`;
+              const { error: uploadError } = await supabase.storage
+                .from('productos')
+                .upload(fileName, bytes, { contentType, upsert: true });
+              if (!uploadError) {
+                const { data: pub } = supabase.storage.from('productos').getPublicUrl(fileName);
+                finalImageUrl = pub.publicUrl;
+                const { error: imgUpdateErr } = await supabase
+                  .from('productos')
+                  .update({ imagen_url: finalImageUrl })
+                  .eq('id', productId);
+                if (imgUpdateErr) console.error('Error updating producto.imagen_url:', imgUpdateErr);
+              } else {
+                console.error('Error uploading mirrored image (single):', uploadError);
+              }
+            } else {
+              console.warn('Remote image not reachable (single):', currentSrc, resImg.status);
+            }
           }
         } else {
-          console.warn('Remote image not reachable (single):', src, resImg.status);
+          console.warn('WooCommerce get product failed:', wcResp.status);
         }
       } catch (e) {
-        console.error('Mirror image error (single):', e);
+        console.error('Error fetching/mirroring image from WooCommerce (single):', e);
       }
     }
 
-    // Preparar datos para WooCommerce
+    // Preparar datos para WooCommerce (no enviamos imágenes para evitar errores de tipo)
     const wooProduct = {
       name: producto.nombre,
       description: producto.descripcion || '',
@@ -207,11 +222,9 @@ serve(async (req) => {
       manage_stock: true,
       categories: producto.categoria ? [{ name: producto.categoria }] : [],
       status: producto.activo ? 'publish' : 'draft',
-      images: finalImageUrl ? [{ src: finalImageUrl }] : [],
     };
 
-    // Para actualizaciones: solo incluir imágenes si son de Supabase (no de WooCommerce, evita 403)
-    const isSupabaseImage = !!finalImageUrl && finalImageUrl.includes('supabase.co/storage');
+    // Para actualizaciones no enviamos imágenes para evitar errores de tipo en WooCommerce
     const wooUpdateProduct = {
       id: Number(producto.woocommerce_id),
       name: wooProduct.name,
@@ -220,7 +233,6 @@ serve(async (req) => {
       stock_quantity: wooProduct.stock_quantity,
       manage_stock: wooProduct.manage_stock,
       status: wooProduct.status,
-      ...(isSupabaseImage && { images: wooProduct.images }),
     };
 
     const baseUrl = woocommerceUrl.replace(/\/$/, '');
