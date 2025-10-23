@@ -61,7 +61,38 @@ serve(async (req) => {
         .maybeSingle();
 
       const categoria = wooProduct.categories?.[0]?.name || 'Otros';
-      const imagenUrl = wooProduct.images?.[0]?.src || null;
+      let imagenUrl = wooProduct.images?.[0]?.src || null;
+
+      // Mirror WooCommerce image into Storage to avoid hotlink/CORS/webp issues
+      let finalImageUrl = imagenUrl;
+      if (imagenUrl) {
+        try {
+          const resImg = await fetch(imagenUrl);
+          if (resImg.ok) {
+            const contentType = resImg.headers.get('content-type') || 'application/octet-stream';
+            const arrayBuffer = await resImg.arrayBuffer();
+            const bytes = new Uint8Array(arrayBuffer);
+            const extFromType = contentType.includes('webp') ? 'webp'
+              : contentType.includes('jpeg') ? 'jpg'
+              : contentType.includes('png') ? 'png'
+              : (imagenUrl.split('.').pop()?.split('?')[0] || 'img');
+            const fileName = `wc-${wooProduct.id}-${Date.now()}.${extFromType}`;
+            const { error: uploadError } = await supabase.storage
+              .from('productos')
+              .upload(fileName, bytes, { contentType, upsert: true });
+            if (!uploadError) {
+              const { data: pub } = supabase.storage.from('productos').getPublicUrl(fileName);
+              finalImageUrl = pub.publicUrl;
+            } else {
+              console.error('Error uploading mirrored image:', uploadError);
+            }
+          } else {
+            console.warn('Remote image not reachable:', imagenUrl, resImg.status);
+          }
+        } catch (e) {
+          console.error('Mirror image error:', e);
+        }
+      }
 
       const productoData = {
         nombre: wooProduct.name,
@@ -71,7 +102,7 @@ serve(async (req) => {
         stock_actual: wooProduct.stock_quantity || 0,
         stock_minimo: 5,
         activo: wooProduct.status === 'publish',
-        imagen_url: imagenUrl,
+        imagen_url: finalImageUrl,
         woocommerce_id: wooProduct.id.toString(),
       };
 

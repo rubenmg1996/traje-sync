@@ -104,6 +104,17 @@ export function ProductosTable({ search }: ProductosTableProps) {
                       <img
                         src={producto.imagen_url}
                         alt={producto.nombre}
+                        loading="lazy"
+                        referrerPolicy="no-referrer"
+                        onError={(e) => {
+                          const t = e.currentTarget as HTMLImageElement & { dataset: { retried?: string } };
+                          if (!t.dataset.retried) {
+                            t.dataset.retried = '1';
+                            if (t.src.endsWith('.webp')) {
+                              t.src = t.src.replace('.webp', '.jpg');
+                            }
+                          }
+                        }}
                         className="w-12 h-12 object-cover rounded"
                       />
                     ) : (
