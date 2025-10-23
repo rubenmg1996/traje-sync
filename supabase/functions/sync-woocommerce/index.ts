@@ -187,11 +187,13 @@ serve(async (req) => {
                 : contentType.includes('png') ? 'png'
                 : (currentSrc.split('.').pop()?.split('?')[0] || 'img');
               const fileName = `wc-${producto.woocommerce_id || producto.id}-${Date.now()}.${extFromType}`;
-              const { error: uploadError } = await supabase.storage
+              const blob = new Blob([bytes], { type: contentType });
+              const { data: upData, error: uploadError } = await supabase.storage
                 .from('productos')
-                .upload(fileName, arrayBuffer, { contentType, upsert: true });
+                .upload(fileName, blob, { contentType, upsert: true });
               if (!uploadError) {
                 const { data: pub } = supabase.storage.from('productos').getPublicUrl(fileName);
+                console.log('Uploaded image to storage (single):', fileName);
                 finalImageUrl = pub.publicUrl;
                 const { error: imgUpdateErr } = await supabase
                   .from('productos')

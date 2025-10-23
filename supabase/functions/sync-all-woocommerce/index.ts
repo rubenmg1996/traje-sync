@@ -100,11 +100,13 @@ serve(async (req) => {
               : contentType.includes('png') ? 'png'
               : (src.split('.').pop()?.split('?')[0] || 'img');
             const fileName = `wc-${wooProduct.id}-${Date.now()}.${extFromType}`;
-            const { error: uploadError } = await supabase.storage
+            const blob = new Blob([bytes], { type: contentType });
+            const { data: upData, error: uploadError } = await supabase.storage
               .from('productos')
-              .upload(fileName, arrayBuffer, { contentType, upsert: true });
+              .upload(fileName, blob, { contentType, upsert: true });
             if (!uploadError) {
               const { data: pub } = supabase.storage.from('productos').getPublicUrl(fileName);
+              console.log('Uploaded image to storage:', fileName);
               finalImageUrl = pub.publicUrl;
             } else {
               console.error('Error uploading mirrored image:', uploadError);

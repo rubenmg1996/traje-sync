@@ -108,7 +108,8 @@ export function ProductosTable({ search }: ProductosTableProps) {
                         referrerPolicy="no-referrer"
                         onError={(e) => {
                           const t = e.currentTarget as HTMLImageElement & { dataset: { retried?: string } };
-                          if (!t.dataset.retried) {
+                          const isSupabase = t.src.includes('supabase.co/storage');
+                          if (!t.dataset.retried && !isSupabase) {
                             t.dataset.retried = '1';
                             if (t.src.endsWith('.webp')) {
                               t.src = t.src.replace('.webp', '.jpg');
