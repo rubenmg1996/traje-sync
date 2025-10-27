@@ -8,8 +8,21 @@ const corsHeaders = {
 interface NotificationRequest {
   clienteNombre: string;
   clienteTelefono?: string;
+  clienteEmail?: string;
   numeroEncargo: string;
   estado: string;
+  precioTotal?: number;
+  productos?: Array<{
+    cantidad: number;
+    precio_unitario: number;
+    observaciones?: string;
+    productos: {
+      nombre: string;
+      precio: number;
+    };
+  }>;
+  notas?: string;
+  fechaCreacion?: string;
 }
 
 serve(async (req) => {
@@ -19,8 +32,18 @@ serve(async (req) => {
 
   try {
     console.log('Notify encargo status function invoked');
-    const { clienteNombre, clienteTelefono, numeroEncargo, estado }: NotificationRequest = await req.json();
-    console.log('Request data:', { clienteNombre, clienteTelefono, numeroEncargo, estado });
+    const { 
+      clienteNombre, 
+      clienteTelefono, 
+      clienteEmail,
+      numeroEncargo, 
+      estado,
+      precioTotal,
+      productos,
+      notas,
+      fechaCreacion
+    }: NotificationRequest = await req.json();
+    console.log('Request data:', { clienteNombre, clienteTelefono, clienteEmail, numeroEncargo, estado });
 
     // Si no hay teléfono, no podemos enviar WhatsApp
     if (!clienteTelefono) {
@@ -98,8 +121,68 @@ serve(async (req) => {
     const data = await response.json();
     console.log('WhatsApp notification sent successfully:', data.sid);
 
+    // Crear factura en Holded si el estado es "entregado"
+    let holdedInvoiceId = null;
+    if (estado === 'entregado') {
+      try {
+        const holdedApiKey = Deno.env.get('HOLDED_API_KEY');
+        
+        if (holdedApiKey) {
+          console.log('Creating invoice in Holded...');
+          
+          // Preparar items para Holded
+          const holdedItems = productos?.map(item => ({
+            name: item.productos.nombre,
+            units: item.cantidad,
+            subtotal: item.precio_unitario * item.cantidad,
+            discount: 0,
+            tax: 21, // IVA por defecto 21%
+            desc: item.observaciones || ''
+          })) || [];
+
+          const holdedBody = {
+            docType: 'invoice',
+            contactName: clienteNombre,
+            contactEmail: clienteEmail || '',
+            date: Math.floor(new Date(fechaCreacion || Date.now()).getTime() / 1000),
+            items: holdedItems,
+            notes: notas || `Encargo ${numeroEncargo}`,
+            invoiceNum: numeroEncargo
+          };
+
+          console.log('Holded request body:', JSON.stringify(holdedBody, null, 2));
+
+          const holdedResponse = await fetch('https://api.holded.com/api/invoicing/v1/documents/invoice', {
+            method: 'POST',
+            headers: {
+              'Key': holdedApiKey,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(holdedBody),
+          });
+
+          if (holdedResponse.ok) {
+            const holdedData = await holdedResponse.json();
+            holdedInvoiceId = holdedData.id;
+            console.log('Holded invoice created successfully:', holdedInvoiceId);
+          } else {
+            const errorText = await holdedResponse.text();
+            console.error('Error creating Holded invoice:', holdedResponse.status, errorText);
+          }
+        } else {
+          console.log('Holded API key not configured, skipping invoice creation');
+        }
+      } catch (holdedError) {
+        console.error('Error with Holded integration:', holdedError);
+      }
+    }
+
     return new Response(
-      JSON.stringify({ success: true, messageSid: data.sid }),
+      JSON.stringify({ 
+        success: true, 
+        messageSid: data.sid,
+        holdedInvoiceId: holdedInvoiceId 
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
   } catch (error: any) {

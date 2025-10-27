@@ -222,15 +222,41 @@ export const useUpdateEncargo = () => {
         }
       }
 
-      // Si cambia a entregado, enviar notificación WhatsApp
+      // Si cambia a entregado, enviar notificación WhatsApp y crear factura en Holded
       if (encargo.estado === "entregado") {
         try {
+          // Obtener productos completos del encargo
+          const { data: encargoConProductos } = await supabase
+            .from("encargos")
+            .select(`
+              *,
+              encargo_productos (
+                id,
+                producto_id,
+                cantidad,
+                precio_unitario,
+                observaciones,
+                productos (
+                  id,
+                  nombre,
+                  precio
+                )
+              )
+            `)
+            .eq("id", id)
+            .single();
+
           await supabase.functions.invoke("notify-encargo-status", {
             body: {
               clienteNombre: updatedEncargo.cliente_nombre,
               clienteTelefono: updatedEncargo.cliente_telefono,
+              clienteEmail: updatedEncargo.cliente_email,
               numeroEncargo: updatedEncargo.numero_encargo,
-              estado: "entregado"
+              estado: "entregado",
+              precioTotal: updatedEncargo.precio_total,
+              productos: encargoConProductos?.encargo_productos || [],
+              notas: updatedEncargo.notas,
+              fechaCreacion: updatedEncargo.fecha_creacion
             }
           });
         } catch (notifError) {
