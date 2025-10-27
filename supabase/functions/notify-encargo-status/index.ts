@@ -16,7 +16,7 @@ interface NotificationRequest {
     cantidad: number;
     precio_unitario: number;
     observaciones?: string;
-    productos: {
+    productos?: {
       nombre: string;
       precio: number;
     };
@@ -79,11 +79,9 @@ serve(async (req) => {
       );
     }
 
-    // Formatear número de teléfono para WhatsApp (debe incluir código de país)
-    let formattedPhone = clienteTelefono.replace(/\s+/g, '');
-    if (!formattedPhone.startsWith('+')) {
-      formattedPhone = '+34' + formattedPhone; // Asume España si no tiene código
-    }
+    // Formatear número de teléfono para WhatsApp (siempre añadir +34)
+    let formattedPhone = clienteTelefono.replace(/\s+/g, '').replace(/^(\+34)?/, '');
+    formattedPhone = '+34' + formattedPhone;
     const twilioWhatsappTo = `whatsapp:${formattedPhone}`;
 
     let message = '';
@@ -94,9 +92,10 @@ serve(async (req) => {
       // Notificación para el CLIENTE
       let productosTexto = '';
       if (productos && productos.length > 0) {
-        productosTexto = '\n\nProductos:\n' + productos.map(p => 
-          `• ${p.productos.nombre} (x${p.cantidad}) - €${(p.precio_unitario * p.cantidad).toFixed(2)}`
-        ).join('\n');
+        productosTexto = '\n\nProductos:\n' + productos.map(p => {
+          const nombreProducto = p.productos?.nombre || 'Producto';
+          return `• ${nombreProducto} (x${p.cantidad}) - €${(p.precio_unitario * p.cantidad).toFixed(2)}`;
+        }).join('\n');
       }
       
       message = `✨ ¡Hola ${clienteNombre}!\n\nGracias por tu encargo ${numeroEncargo}\n\n${tipoEntregaTexto}${fechaEstimada}${direccionEnvio ? `\nDirección: ${direccionEnvio}` : ''}${productosTexto}\n\n💰 Total: €${precioTotal ? precioTotal.toFixed(2) : '0.00'}\n\nTe avisaremos cuando esté listo. ¡Gracias por tu confianza! 🌟`;
@@ -157,7 +156,7 @@ serve(async (req) => {
           
           // Preparar items para Holded
           const holdedItems = productos?.map(item => ({
-            name: item.productos.nombre,
+            name: item.productos?.nombre || 'Producto',
             units: item.cantidad,
             subtotal: item.precio_unitario * item.cantidad,
             discount: 0,
