@@ -337,11 +337,7 @@ const EncargoFormDialog = ({ encargo, open, onOpenChange }: EncargoFormDialogPro
                           }}
                         >
                           <SelectTrigger>
-                            <SelectValue>
-                              {product.producto_id 
-                                ? productos?.find(p => p.id === product.producto_id)?.nombre || "Selecciona producto"
-                                : "Selecciona producto"}
-                            </SelectValue>
+                            <SelectValue placeholder="Selecciona producto" />
                           </SelectTrigger>
                           <SelectContent>
                             {productos?.map((p) => (
