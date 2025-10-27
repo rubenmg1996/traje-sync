@@ -82,11 +82,13 @@ serve(async (req) => {
 
     let message = '';
     if (estado === 'entregado') {
-      message = `Hola ${clienteNombre}! 🎉\n\nTu encargo ${numeroEncargo} está listo y ha sido entregado.\n\n¡Gracias por tu confianza!`;
+      message = `📦 Encargo ${numeroEncargo} ENTREGADO\n\nCliente: ${clienteNombre}\nTeléfono: ${formattedPhone}\n\n✅ El encargo ha sido entregado exitosamente.`;
+    } else if (estado === 'cancelado') {
+      message = `❌ Encargo ${numeroEncargo} CANCELADO\n\nCliente: ${clienteNombre}\nTeléfono: ${formattedPhone}\n\n⚠️ El encargo ha sido cancelado.`;
     } else if (estado === 'listo_recoger') {
-      message = `Hola ${clienteNombre}! ✅\n\nTu encargo ${numeroEncargo} está listo para recoger.\n\nPuedes pasar a buscarlo cuando quieras.`;
+      message = `✅ Encargo ${numeroEncargo} LISTO\n\nCliente: ${clienteNombre}\nTeléfono: ${formattedPhone}\n\n📍 El encargo está listo para recoger.`;
     } else {
-      message = `Hola ${clienteNombre}!\n\nTu encargo ${numeroEncargo} ha cambiado de estado: ${estado}.\n\nGracias por tu paciencia.`;
+      message = `🔔 Encargo ${numeroEncargo} - ${estado.toUpperCase()}\n\nCliente: ${clienteNombre}\nTeléfono: ${formattedPhone}\n\nCambio de estado registrado.`;
     }
 
     const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Messages.json`;

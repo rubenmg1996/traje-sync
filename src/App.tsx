@@ -13,6 +13,7 @@ import Incidencias from "./pages/Incidencias";
 import IncidenciaDetalle from "./pages/IncidenciaDetalle";
 import Stock from "./pages/Stock";
 import Encargos from "./pages/Encargos";
+import EncargoDetalle from "./pages/EncargoDetalle";
 import Facturacion from "./pages/Facturacion";
 import Configuracion from "./pages/Configuracion";
 import NotFound from "./pages/NotFound";
@@ -93,6 +94,16 @@ const App = () => (
               <ProtectedRoute>
                 <Layout>
                   <Encargos />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/encargos/:id"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <EncargoDetalle />
                 </Layout>
               </ProtectedRoute>
             }
