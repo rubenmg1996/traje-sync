@@ -81,7 +81,9 @@ serve(async (req) => {
     const twilioWhatsappTo = `whatsapp:${formattedPhone}`;
 
     let message = '';
-    if (estado === 'entregado') {
+    if (estado === 'pendiente') {
+      message = `🆕 NUEVO ENCARGO ${numeroEncargo}\n\nCliente: ${clienteNombre}\nTeléfono: ${formattedPhone}\nEmail: ${clienteEmail || 'No proporcionado'}\nTotal: ${precioTotal ? `€${precioTotal.toFixed(2)}` : 'N/A'}\n\n📋 Se ha registrado un nuevo encargo.`;
+    } else if (estado === 'entregado') {
       message = `📦 Encargo ${numeroEncargo} ENTREGADO\n\nCliente: ${clienteNombre}\nTeléfono: ${formattedPhone}\n\n✅ El encargo ha sido entregado exitosamente.`;
     } else if (estado === 'cancelado') {
       message = `❌ Encargo ${numeroEncargo} CANCELADO\n\nCliente: ${clienteNombre}\nTeléfono: ${formattedPhone}\n\n⚠️ El encargo ha sido cancelado.`;
