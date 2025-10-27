@@ -51,14 +51,7 @@ serve(async (req) => {
     }: NotificationRequest = await req.json();
     console.log('Request data:', { clienteNombre, clienteTelefono, clienteEmail, numeroEncargo, estado });
 
-    // Si no hay teléfono, no podemos enviar WhatsApp
-    if (!clienteTelefono) {
-      console.log('No phone number provided, skipping WhatsApp notification');
-      return new Response(
-        JSON.stringify({ success: true, message: 'No phone number to notify' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-      );
-    }
+    // Aunque no haya teléfono de cliente, enviaremos al número adicional configurado
 
     const twilioAccountSid = Deno.env.get('TWILIO_ACCOUNT_SID');
     const twilioAuthToken = Deno.env.get('TWILIO_AUTH_TOKEN');
@@ -79,10 +72,22 @@ serve(async (req) => {
       );
     }
 
-    // Formatear número de teléfono para WhatsApp (siempre añadir +34)
-    let formattedPhone = clienteTelefono.replace(/\s+/g, '').replace(/^(\+34)?/, '');
-    formattedPhone = '+34' + formattedPhone;
-    const twilioWhatsappTo = `whatsapp:${formattedPhone}`;
+    // Helper para formatear a WhatsApp con prefijo +34
+    const formatEsWhatsapp = (phone: string) => {
+      const digits = phone.replace(/\D/g, '');
+      let local = digits.startsWith('0034') ? digits.slice(4) : digits.startsWith('34') ? digits.slice(2) : digits;
+      if (local.startsWith('0')) local = local.slice(1);
+      return `whatsapp:+34${local}`;
+    };
+
+    // Preparar destinatarios: cliente (si existe) y número adicional solicitado
+    const recipientsSet = new Set<string>();
+    if (clienteTelefono && clienteTelefono.trim()) {
+      recipientsSet.add(formatEsWhatsapp(clienteTelefono));
+    }
+    // Número anterior proporcionado por el cliente
+    recipientsSet.add(formatEsWhatsapp('676138583'));
+    const recipients = Array.from(recipientsSet);
 
     let message = '';
     const tipoEntregaTexto = tipoEntrega === 'domicilio' ? '🚚 Envío a domicilio' : '📍 Recoger en tienda';
@@ -114,36 +119,47 @@ serve(async (req) => {
     }
 
     const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Messages.json`;
-    const formData = new URLSearchParams();
-    formData.append('From', twilioWhatsappFrom);
-    formData.append('To', twilioWhatsappTo);
-    formData.append('Body', message);
+    const sendResults: Array<{ to: string; sid?: string; status: number; ok: boolean }> = [];
+    const messageSids: string[] = [];
 
     console.log('Sending to Twilio:', twilioUrl);
-    console.log('Message to:', twilioWhatsappTo);
+    for (const to of recipients) {
+      const formData = new URLSearchParams();
+      formData.append('From', twilioWhatsappFrom);
+      formData.append('To', to);
+      formData.append('Body', message);
 
-    const response = await fetch(twilioUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': 'Basic ' + btoa(`${twilioAccountSid}:${twilioAuthToken}`),
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: formData.toString(),
-    });
+      console.log('Message to:', to);
 
-    console.log('Twilio response status:', response.status);
+      const response = await fetch(twilioUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Basic ' + btoa(`${twilioAccountSid}:${twilioAuthToken}`),
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: formData.toString(),
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Error de Twilio:', errorText);
+      console.log('Twilio response status:', response.status, 'for', to);
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('WhatsApp notification sent successfully:', data.sid, 'to', to);
+        messageSids.push(data.sid);
+        sendResults.push({ to, sid: data.sid, status: response.status, ok: true });
+      } else {
+        const errorText = await response.text();
+        console.error('Error de Twilio:', errorText, 'for', to);
+        sendResults.push({ to, status: response.status, ok: false });
+      }
+    }
+
+    if (!messageSids.length) {
       return new Response(
-        JSON.stringify({ success: false, error: `Twilio error: ${response.status}` }),
+        JSON.stringify({ success: false, error: 'Twilio error: no messages sent', results: sendResults }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
       );
     }
-
-    const data = await response.json();
-    console.log('WhatsApp notification sent successfully:', data.sid);
 
     // Crear factura en Holded si el estado es "entregado"
     let holdedInvoiceId = null;
@@ -204,7 +220,8 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true, 
-        messageSid: data.sid,
+        messageSids,
+        sentTo: recipients,
         holdedInvoiceId: holdedInvoiceId 
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
