@@ -129,120 +129,20 @@ export const useEncargo = (id: string) => {
 export const useCreateEncargo = () => {
   const queryClient = useQueryClient();
 
-  return useMutation({
     mutationFn: async (encargo: Omit<Encargo, "id" | "numero_encargo" | "fecha_actualizacion">) => {
-      const { productos, ...encargoData } = encargo;
+      // Mover la creación a una función de backend para evitar problemas de RLS
+      const { data, error } = await supabase.functions.invoke("create-encargo", {
+        body: encargo,
+      });
 
-      // Verificar stock disponible antes de crear el encargo
-      if (productos && productos.length > 0) {
-        const { data: productosActuales, error: stockError } = await supabase
-          .from("productos")
-          .select("id, nombre, stock_actual")
-          .in("id", productos.map(p => p.producto_id));
-
-        if (stockError) throw stockError;
-
-        const stockInsuficiente = [];
-        for (const productoEncargo of productos) {
-          const producto = productosActuales?.find(p => p.id === productoEncargo.producto_id);
-          if (producto && producto.stock_actual < productoEncargo.cantidad) {
-            stockInsuficiente.push({
-              nombre: producto.nombre,
-              solicitado: productoEncargo.cantidad,
-              disponible: producto.stock_actual
-            });
-          }
-        }
-
-        if (stockInsuficiente.length > 0) {
-          const mensaje = stockInsuficiente
-            .map(p => `${p.nombre}: solicitado ${p.solicitado}, disponible ${p.disponible}`)
-            .join("; ");
-          throw new Error(`Stock insuficiente. ${mensaje}`);
-        }
+      if (error) {
+        // Edge functions devuelven error aquí si status >= 400
+        throw new Error(error.message || "No se pudo crear el encargo");
       }
 
-      // Crear el encargo
-      const { data: newEncargo, error: encargoError } = await supabase
-        .from("encargos")
-        .insert([encargoData])
-        .select()
-        .single();
-
-      if (encargoError) throw encargoError;
-
-      // Insertar productos
-      if (productos && productos.length > 0) {
-        const productosData = productos.map(p => ({
-          encargo_id: newEncargo.id,
-          producto_id: p.producto_id,
-          cantidad: p.cantidad,
-          precio_unitario: p.precio_unitario,
-          observaciones: p.observaciones,
-        }));
-
-        const { error: productosError } = await supabase
-          .from("encargo_productos")
-          .insert(productosData);
-
-        if (productosError) throw productosError;
-
-        // Actualizar stock de cada producto
-        for (const producto of productos) {
-          const { data: productoActual, error: fetchError } = await supabase
-            .from("productos")
-            .select("stock_actual")
-            .eq("id", producto.producto_id)
-            .single();
-
-          if (fetchError) {
-            console.error("Error al obtener producto:", fetchError);
-            continue;
-          }
-
-          const nuevoStock = productoActual.stock_actual - producto.cantidad;
-
-          const { error: updateError } = await supabase
-            .from("productos")
-            .update({ stock_actual: nuevoStock })
-            .eq("id", producto.producto_id);
-
-          if (updateError) {
-            console.error("Error al actualizar stock:", updateError);
-            continue;
-          }
-
-          // Sincronizar con WooCommerce
-          try {
-            await supabase.functions.invoke('sync-woocommerce', {
-              body: { productId: producto.producto_id }
-            });
-          } catch (syncError) {
-            console.error("Error al sincronizar con WooCommerce:", syncError);
-          }
-        }
-      }
-
-      // Enviar notificación de nuevo encargo al cliente
-      try {
-        await supabase.functions.invoke("notify-encargo-status", {
-          body: {
-            clienteNombre: newEncargo.cliente_nombre,
-            clienteTelefono: newEncargo.cliente_telefono,
-            clienteEmail: newEncargo.cliente_email,
-            numeroEncargo: newEncargo.numero_encargo,
-            estado: "pendiente",
-            precioTotal: newEncargo.precio_total,
-            productos: productos,
-            notas: newEncargo.notas,
-            fechaCreacion: newEncargo.fecha_creacion,
-            tipoEntrega: newEncargo.tipo_entrega,
-            direccionEnvio: newEncargo.direccion_envio,
-            fechaEntregaEstimada: newEncargo.fecha_entrega_estimada
-          }
-        });
-      } catch (notifError) {
-        console.error("Error sending notification:", notifError);
+      const newEncargo = data?.encargo;
+      if (!newEncargo) {
+        throw new Error("Respuesta inválida del servidor al crear encargo");
       }
 
       return newEncargo;
