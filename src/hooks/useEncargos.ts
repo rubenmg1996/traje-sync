@@ -23,6 +23,9 @@ export interface Encargo {
   cliente_email?: string;
   fecha_creacion: string;
   fecha_entrega?: string;
+  fecha_entrega_estimada?: string;
+  tipo_entrega?: "recoger" | "domicilio";
+  direccion_envio?: string;
   estado: "pendiente" | "en_produccion" | "listo_recoger" | "entregado" | "cancelado";
   precio_total: number;
   notas?: string;
@@ -220,7 +223,7 @@ export const useCreateEncargo = () => {
         }
       }
 
-      // Enviar notificación de nuevo encargo
+      // Enviar notificación de nuevo encargo al cliente
       try {
         await supabase.functions.invoke("notify-encargo-status", {
           body: {
@@ -232,7 +235,10 @@ export const useCreateEncargo = () => {
             precioTotal: newEncargo.precio_total,
             productos: productos,
             notas: newEncargo.notas,
-            fechaCreacion: newEncargo.fecha_creacion
+            fechaCreacion: newEncargo.fecha_creacion,
+            tipoEntrega: newEncargo.tipo_entrega,
+            direccionEnvio: newEncargo.direccion_envio,
+            fechaEntregaEstimada: newEncargo.fecha_entrega_estimada
           }
         });
       } catch (notifError) {
@@ -341,7 +347,10 @@ export const useUpdateEncargo = () => {
               precioTotal: updatedEncargo.precio_total,
               productos: encargoConProductos?.encargo_productos || [],
               notas: updatedEncargo.notas,
-              fechaCreacion: updatedEncargo.fecha_creacion
+              fechaCreacion: updatedEncargo.fecha_creacion,
+              tipoEntrega: encargoConProductos?.tipo_entrega,
+              direccionEnvio: encargoConProductos?.direccion_envio,
+              fechaEntregaEstimada: encargoConProductos?.fecha_entrega_estimada
             }
           });
         } catch (notifError) {

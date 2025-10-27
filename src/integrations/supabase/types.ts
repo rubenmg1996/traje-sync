@@ -140,14 +140,17 @@ export type Database = {
           cliente_nombre: string
           cliente_telefono: string | null
           created_at: string
+          direccion_envio: string | null
           estado: Database["public"]["Enums"]["estado_encargo"]
           fecha_actualizacion: string | null
           fecha_creacion: string
           fecha_entrega: string | null
+          fecha_entrega_estimada: string | null
           id: string
           notas: string | null
           numero_encargo: string
           precio_total: number
+          tipo_entrega: string | null
           updated_at: string
         }
         Insert: {
@@ -156,14 +159,17 @@ export type Database = {
           cliente_nombre: string
           cliente_telefono?: string | null
           created_at?: string
+          direccion_envio?: string | null
           estado?: Database["public"]["Enums"]["estado_encargo"]
           fecha_actualizacion?: string | null
           fecha_creacion?: string
           fecha_entrega?: string | null
+          fecha_entrega_estimada?: string | null
           id?: string
           notas?: string | null
           numero_encargo?: string
           precio_total?: number
+          tipo_entrega?: string | null
           updated_at?: string
         }
         Update: {
@@ -172,14 +178,17 @@ export type Database = {
           cliente_nombre?: string
           cliente_telefono?: string | null
           created_at?: string
+          direccion_envio?: string | null
           estado?: Database["public"]["Enums"]["estado_encargo"]
           fecha_actualizacion?: string | null
           fecha_creacion?: string
           fecha_entrega?: string | null
+          fecha_entrega_estimada?: string | null
           id?: string
           notas?: string | null
           numero_encargo?: string
           precio_total?: number
+          tipo_entrega?: string | null
           updated_at?: string
         }
         Relationships: [

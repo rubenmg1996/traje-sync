@@ -23,6 +23,9 @@ interface NotificationRequest {
   }>;
   notas?: string;
   fechaCreacion?: string;
+  tipoEntrega?: string;
+  direccionEnvio?: string;
+  fechaEntregaEstimada?: string;
 }
 
 serve(async (req) => {
@@ -41,7 +44,10 @@ serve(async (req) => {
       precioTotal,
       productos,
       notas,
-      fechaCreacion
+      fechaCreacion,
+      tipoEntrega,
+      direccionEnvio,
+      fechaEntregaEstimada
     }: NotificationRequest = await req.json();
     console.log('Request data:', { clienteNombre, clienteTelefono, clienteEmail, numeroEncargo, estado });
 
@@ -81,16 +87,31 @@ serve(async (req) => {
     const twilioWhatsappTo = `whatsapp:${formattedPhone}`;
 
     let message = '';
+    const tipoEntregaTexto = tipoEntrega === 'domicilio' ? '🚚 Envío a domicilio' : '📍 Recoger en tienda';
+    const fechaEstimada = fechaEntregaEstimada ? `\nFecha estimada: ${new Date(fechaEntregaEstimada).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}` : '';
+    
     if (estado === 'pendiente') {
-      message = `🆕 NUEVO ENCARGO ${numeroEncargo}\n\nCliente: ${clienteNombre}\nTeléfono: ${formattedPhone}\nEmail: ${clienteEmail || 'No proporcionado'}\nTotal: ${precioTotal ? `€${precioTotal.toFixed(2)}` : 'N/A'}\n\n📋 Se ha registrado un nuevo encargo.`;
+      // Notificación para el CLIENTE
+      let productosTexto = '';
+      if (productos && productos.length > 0) {
+        productosTexto = '\n\nProductos:\n' + productos.map(p => 
+          `• ${p.productos.nombre} (x${p.cantidad}) - €${(p.precio_unitario * p.cantidad).toFixed(2)}`
+        ).join('\n');
+      }
+      
+      message = `✨ ¡Hola ${clienteNombre}!\n\nGracias por tu encargo ${numeroEncargo}\n\n${tipoEntregaTexto}${fechaEstimada}${direccionEnvio ? `\nDirección: ${direccionEnvio}` : ''}${productosTexto}\n\n💰 Total: €${precioTotal ? precioTotal.toFixed(2) : '0.00'}\n\nTe avisaremos cuando esté listo. ¡Gracias por tu confianza! 🌟`;
     } else if (estado === 'entregado') {
-      message = `📦 Encargo ${numeroEncargo} ENTREGADO\n\nCliente: ${clienteNombre}\nTeléfono: ${formattedPhone}\n\n✅ El encargo ha sido entregado exitosamente.`;
+      message = `🎉 ¡Hola ${clienteNombre}!\n\nTu encargo ${numeroEncargo} ha sido entregado.\n\n¡Gracias por confiar en nosotros! Esperamos verte pronto. 💫`;
     } else if (estado === 'cancelado') {
-      message = `❌ Encargo ${numeroEncargo} CANCELADO\n\nCliente: ${clienteNombre}\nTeléfono: ${formattedPhone}\n\n⚠️ El encargo ha sido cancelado.`;
+      message = `Hola ${clienteNombre},\n\nTu encargo ${numeroEncargo} ha sido cancelado.\n\nSi tienes alguna duda, no dudes en contactarnos. 📞`;
     } else if (estado === 'listo_recoger') {
-      message = `✅ Encargo ${numeroEncargo} LISTO\n\nCliente: ${clienteNombre}\nTeléfono: ${formattedPhone}\n\n📍 El encargo está listo para recoger.`;
+      if (tipoEntrega === 'domicilio') {
+        message = `📦 ¡Hola ${clienteNombre}!\n\nTu encargo ${numeroEncargo} está en camino.\n\n🚚 Será entregado en: ${direccionEnvio || 'tu dirección'}\n\n¡Pronto lo tendrás! 🎁`;
+      } else {
+        message = `✅ ¡Hola ${clienteNombre}!\n\nTu encargo ${numeroEncargo} está listo para recoger.\n\n📍 Pasa cuando quieras por nuestra tienda.\n\n¡Te esperamos! 😊`;
+      }
     } else {
-      message = `🔔 Encargo ${numeroEncargo} - ${estado.toUpperCase()}\n\nCliente: ${clienteNombre}\nTeléfono: ${formattedPhone}\n\nCambio de estado registrado.`;
+      message = `Hola ${clienteNombre},\n\nTu encargo ${numeroEncargo} ha sido actualizado.\n\nEstado: ${estado}\n\nGracias por tu paciencia. 🙏`;
     }
 
     const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Messages.json`;

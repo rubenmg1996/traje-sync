@@ -37,6 +37,9 @@ const encargoSchema = z.object({
   cliente_telefono: z.string().optional(),
   cliente_email: z.string().email("Email inválido").optional().or(z.literal("")),
   fecha_entrega: z.string().optional(),
+  fecha_entrega_estimada: z.string().optional(),
+  tipo_entrega: z.enum(["recoger", "domicilio"]),
+  direccion_envio: z.string().optional(),
   estado: z.enum(["pendiente", "en_produccion", "listo_recoger", "entregado", "cancelado"]),
   notas: z.string().optional(),
 });
@@ -62,6 +65,9 @@ const EncargoFormDialog = ({ encargo, open, onOpenChange }: EncargoFormDialogPro
       cliente_telefono: "",
       cliente_email: "",
       fecha_entrega: "",
+      fecha_entrega_estimada: "",
+      tipo_entrega: "recoger",
+      direccion_envio: "",
       estado: "pendiente",
       notas: "",
     },
@@ -76,6 +82,11 @@ const EncargoFormDialog = ({ encargo, open, onOpenChange }: EncargoFormDialogPro
         fecha_entrega: encargo.fecha_entrega
           ? new Date(encargo.fecha_entrega).toISOString().split("T")[0]
           : "",
+        fecha_entrega_estimada: encargo.fecha_entrega_estimada
+          ? new Date(encargo.fecha_entrega_estimada).toISOString().split("T")[0]
+          : "",
+        tipo_entrega: encargo.tipo_entrega || "recoger",
+        direccion_envio: encargo.direccion_envio || "",
         estado: encargo.estado,
         notas: encargo.notas || "",
       });
@@ -124,6 +135,9 @@ const EncargoFormDialog = ({ encargo, open, onOpenChange }: EncargoFormDialogPro
       cliente_telefono: data.cliente_telefono,
       cliente_email: data.cliente_email,
       fecha_entrega: data.fecha_entrega,
+      fecha_entrega_estimada: data.fecha_entrega_estimada,
+      tipo_entrega: data.tipo_entrega,
+      direccion_envio: data.direccion_envio,
       estado: data.estado,
       notas: data.notas,
       precio_total: calculateTotal(),
@@ -209,6 +223,20 @@ const EncargoFormDialog = ({ encargo, open, onOpenChange }: EncargoFormDialogPro
                 name="fecha_entrega"
                 render={({ field }) => (
                   <FormItem>
+                    <FormLabel>Fecha de Entrega Real</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="fecha_entrega_estimada"
+                render={({ field }) => (
+                  <FormItem>
                     <FormLabel>Fecha Estimada de Entrega</FormLabel>
                     <FormControl>
                       <Input type="date" {...field} />
@@ -217,6 +245,44 @@ const EncargoFormDialog = ({ encargo, open, onOpenChange }: EncargoFormDialogPro
                   </FormItem>
                 )}
               />
+
+              <FormField
+                control={form.control}
+                name="tipo_entrega"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tipo de Entrega</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona tipo" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="recoger">Recoger en tienda</SelectItem>
+                        <SelectItem value="domicilio">Envío a domicilio</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {form.watch("tipo_entrega") === "domicilio" && (
+                <FormField
+                  control={form.control}
+                  name="direccion_envio"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Dirección de Envío</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Ej: Calle Mayor, 1, 28001 Madrid" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
 
               <FormField
                 control={form.control}
