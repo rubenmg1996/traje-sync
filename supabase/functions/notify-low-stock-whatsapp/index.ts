@@ -17,12 +17,23 @@ serve(async (req) => {
   }
 
   try {
+    console.log('Notify WhatsApp function invoked');
     const { productName, currentStock, minStock }: NotificationRequest = await req.json();
+    console.log('Request data:', { productName, currentStock, minStock });
 
     const twilioAccountSid = Deno.env.get('TWILIO_ACCOUNT_SID');
     const twilioAuthToken = Deno.env.get('TWILIO_AUTH_TOKEN');
     const twilioWhatsappFrom = Deno.env.get('TWILIO_WHATSAPP_FROM');
     const twilioWhatsappTo = Deno.env.get('TWILIO_WHATSAPP_TO');
+
+    console.log('Twilio config:', {
+      hasSid: !!twilioAccountSid,
+      hasToken: !!twilioAuthToken,
+      hasFrom: !!twilioWhatsappFrom,
+      hasTo: !!twilioWhatsappTo,
+      from: twilioWhatsappFrom,
+      to: twilioWhatsappTo
+    });
 
     if (!twilioAccountSid || !twilioAuthToken || !twilioWhatsappFrom || !twilioWhatsappTo) {
       throw new Error('Credenciales de Twilio no configuradas');
@@ -37,6 +48,9 @@ serve(async (req) => {
     formData.append('To', twilioWhatsappTo);
     formData.append('Body', message);
 
+    console.log('Sending to Twilio:', twilioUrl);
+    console.log('Message body:', message);
+
     const response = await fetch(twilioUrl, {
       method: 'POST',
       headers: {
@@ -46,14 +60,16 @@ serve(async (req) => {
       body: formData.toString(),
     });
 
+    console.log('Twilio response status:', response.status);
+
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Error de Twilio:', errorText);
-      throw new Error(`Error al enviar WhatsApp: ${response.status}`);
+      throw new Error(`Error al enviar WhatsApp: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
-    console.log('WhatsApp enviado:', data.sid);
+    console.log('WhatsApp enviado exitosamente:', data.sid);
 
     return new Response(
       JSON.stringify({ success: true, messageSid: data.sid }),
