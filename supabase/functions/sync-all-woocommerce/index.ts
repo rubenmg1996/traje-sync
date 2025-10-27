@@ -147,16 +147,34 @@ serve(async (req) => {
       };
 
       if (existing) {
-        // Actualizar producto existente
-        const { error } = await supabase
+        // Actualizar producto existente y verificar stock bajo
+        const { data: updatedProduct, error } = await supabase
           .from('productos')
           .update(productoData)
-          .eq('id', existing.id);
+          .eq('id', existing.id)
+          .select('stock_actual, stock_minimo, nombre')
+          .maybeSingle();
 
         if (error) {
           console.error(`Error updating product ${wooProduct.id}:`, error);
         } else {
           updatedCount++;
+          
+          // Si el stock está bajo el mínimo, enviar WhatsApp
+          if (updatedProduct && updatedProduct.stock_actual < updatedProduct.stock_minimo) {
+            try {
+              await supabase.functions.invoke('notify-low-stock-whatsapp', {
+                body: {
+                  productName: updatedProduct.nombre,
+                  currentStock: updatedProduct.stock_actual,
+                  minStock: updatedProduct.stock_minimo,
+                }
+              });
+              console.log(`WhatsApp sent for low stock: ${updatedProduct.nombre}`);
+            } catch (whatsappError) {
+              console.error('Error sending WhatsApp:', whatsappError);
+            }
+          }
         }
       } else {
         // Crear nuevo producto

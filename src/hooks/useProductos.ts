@@ -112,6 +112,13 @@ export const useUpdateProducto = () => {
 
   return useMutation({
     mutationFn: async ({ id, ...producto }: Partial<Producto> & { id: string }) => {
+      // Obtener el producto antes de actualizar para comparar el stock
+      const { data: oldProduct } = await supabase
+        .from("productos")
+        .select("stock_actual, stock_minimo, nombre")
+        .eq("id", id)
+        .maybeSingle();
+
       const { data, error } = await supabase
         .from("productos")
         .update(producto)
@@ -121,6 +128,29 @@ export const useUpdateProducto = () => {
 
       if (error) throw error;
       if (!data) throw new Error("No se pudo actualizar el producto");
+
+      // Verificar si el stock bajó del mínimo y enviar WhatsApp
+      if (
+        oldProduct &&
+        typeof producto.stock_actual === 'number' &&
+        producto.stock_actual < data.stock_minimo &&
+        (oldProduct.stock_actual >= data.stock_minimo || oldProduct.stock_actual === null)
+      ) {
+        console.log('Stock bajo detectado, enviando WhatsApp...');
+        try {
+          await supabase.functions.invoke('notify-low-stock-whatsapp', {
+            body: {
+              productName: data.nombre,
+              currentStock: data.stock_actual,
+              minStock: data.stock_minimo,
+            }
+          });
+          console.log('Notificación de WhatsApp enviada');
+        } catch (whatsappError) {
+          console.error('Error al enviar WhatsApp:', whatsappError);
+        }
+      }
+
       return data;
     },
     onSuccess: async (data, variables) => {
