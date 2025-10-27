@@ -87,12 +87,15 @@ const EncargoFormDialog = ({ encargo, open, onOpenChange }: EncargoFormDialogPro
   }, [encargo, form]);
 
   const addProduct = () => {
+    if (!productos || productos.length === 0) {
+      return;
+    }
     setSelectedProducts([
       ...selectedProducts,
       {
-        producto_id: "",
+        producto_id: productos[0].id,
         cantidad: 1,
-        precio_unitario: 0,
+        precio_unitario: parseFloat(productos[0].precio.toString()),
         observaciones: "",
       },
     ]);
@@ -268,7 +271,11 @@ const EncargoFormDialog = ({ encargo, open, onOpenChange }: EncargoFormDialogPro
                           }}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="Selecciona producto" />
+                            <SelectValue>
+                              {product.producto_id 
+                                ? productos?.find(p => p.id === product.producto_id)?.nombre || "Selecciona producto"
+                                : "Selecciona producto"}
+                            </SelectValue>
                           </SelectTrigger>
                           <SelectContent>
                             {productos?.map((p) => (
@@ -285,10 +292,11 @@ const EncargoFormDialog = ({ encargo, open, onOpenChange }: EncargoFormDialogPro
                         <Input
                           type="number"
                           min="1"
-                          value={product.cantidad}
-                          onChange={(e) =>
-                            updateProduct(index, "cantidad", parseInt(e.target.value))
-                          }
+                          value={product.cantidad || ""}
+                          onChange={(e) => {
+                            const value = e.target.value === "" ? 1 : parseInt(e.target.value);
+                            updateProduct(index, "cantidad", isNaN(value) ? 1 : value);
+                          }}
                         />
                       </div>
 
@@ -297,10 +305,11 @@ const EncargoFormDialog = ({ encargo, open, onOpenChange }: EncargoFormDialogPro
                         <Input
                           type="number"
                           step="0.01"
-                          value={product.precio_unitario}
-                          onChange={(e) =>
-                            updateProduct(index, "precio_unitario", parseFloat(e.target.value))
-                          }
+                          value={product.precio_unitario || ""}
+                          onChange={(e) => {
+                            const value = e.target.value === "" ? 0 : parseFloat(e.target.value);
+                            updateProduct(index, "precio_unitario", isNaN(value) ? 0 : value);
+                          }}
                         />
                       </div>
 
