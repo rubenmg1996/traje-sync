@@ -70,10 +70,10 @@ const EncargosTable = ({ search, estadoFilter, onEdit }: EncargosTableProps) => 
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Número</TableHead>
+              <TableHead className="hidden lg:table-cell">Número</TableHead>
               <TableHead>Cliente</TableHead>
-              <TableHead>Contacto</TableHead>
-              <TableHead>Fecha Creación</TableHead>
+              <TableHead className="hidden lg:table-cell">Contacto</TableHead>
+              <TableHead className="hidden lg:table-cell">Fecha Creación</TableHead>
               <TableHead>Fecha Entrega</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead className="text-right">Total</TableHead>
@@ -83,14 +83,14 @@ const EncargosTable = ({ search, estadoFilter, onEdit }: EncargosTableProps) => 
           <TableBody>
             {encargos.map((encargo) => (
               <TableRow key={encargo.id}>
-                <TableCell className="font-medium">
+                <TableCell className="font-medium hidden lg:table-cell">
                   {encargo.numero_encargo}
                 </TableCell>
                 <TableCell>{encargo.cliente_nombre}</TableCell>
-                <TableCell className="text-sm text-muted-foreground">
+                <TableCell className="text-sm text-muted-foreground hidden lg:table-cell">
                   {encargo.cliente_telefono || encargo.cliente_email || "-"}
                 </TableCell>
-                <TableCell>
+                <TableCell className="hidden lg:table-cell">
                   {format(new Date(encargo.fecha_creacion), "dd MMM yyyy", { locale: es })}
                 </TableCell>
                 <TableCell>
