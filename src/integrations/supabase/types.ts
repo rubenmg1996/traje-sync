@@ -88,6 +88,110 @@ export type Database = {
         }
         Relationships: []
       }
+      encargo_productos: {
+        Row: {
+          cantidad: number
+          created_at: string
+          encargo_id: string
+          id: string
+          observaciones: string | null
+          precio_unitario: number
+          producto_id: string
+        }
+        Insert: {
+          cantidad?: number
+          created_at?: string
+          encargo_id: string
+          id?: string
+          observaciones?: string | null
+          precio_unitario: number
+          producto_id: string
+        }
+        Update: {
+          cantidad?: number
+          created_at?: string
+          encargo_id?: string
+          id?: string
+          observaciones?: string | null
+          precio_unitario?: number
+          producto_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "encargo_productos_encargo_id_fkey"
+            columns: ["encargo_id"]
+            isOneToOne: false
+            referencedRelation: "encargos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "encargo_productos_producto_id_fkey"
+            columns: ["producto_id"]
+            isOneToOne: false
+            referencedRelation: "productos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      encargos: {
+        Row: {
+          actualizado_por: string | null
+          cliente_email: string | null
+          cliente_nombre: string
+          cliente_telefono: string | null
+          created_at: string
+          estado: Database["public"]["Enums"]["estado_encargo"]
+          fecha_actualizacion: string | null
+          fecha_creacion: string
+          fecha_entrega: string | null
+          id: string
+          notas: string | null
+          numero_encargo: string
+          precio_total: number
+          updated_at: string
+        }
+        Insert: {
+          actualizado_por?: string | null
+          cliente_email?: string | null
+          cliente_nombre: string
+          cliente_telefono?: string | null
+          created_at?: string
+          estado?: Database["public"]["Enums"]["estado_encargo"]
+          fecha_actualizacion?: string | null
+          fecha_creacion?: string
+          fecha_entrega?: string | null
+          id?: string
+          notas?: string | null
+          numero_encargo?: string
+          precio_total?: number
+          updated_at?: string
+        }
+        Update: {
+          actualizado_por?: string | null
+          cliente_email?: string | null
+          cliente_nombre?: string
+          cliente_telefono?: string | null
+          created_at?: string
+          estado?: Database["public"]["Enums"]["estado_encargo"]
+          fecha_actualizacion?: string | null
+          fecha_creacion?: string
+          fecha_entrega?: string | null
+          id?: string
+          notas?: string | null
+          numero_encargo?: string
+          precio_total?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "encargos_actualizado_por_fkey"
+            columns: ["actualizado_por"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       incidencias: {
         Row: {
           asignado_a: string | null
@@ -296,7 +400,12 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      estado_encargo:
+        | "pendiente"
+        | "en_produccion"
+        | "listo_recoger"
+        | "entregado"
+        | "cancelado"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -423,6 +532,14 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      estado_encargo: [
+        "pendiente",
+        "en_produccion",
+        "listo_recoger",
+        "entregado",
+        "cancelado",
+      ],
+    },
   },
 } as const
