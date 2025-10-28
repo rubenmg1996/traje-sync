@@ -465,7 +465,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      update_encargo_productos: {
+        Args: { p_encargo_id: string; p_productos: Json }
+        Returns: undefined
+      }
     }
     Enums: {
       estado_encargo:

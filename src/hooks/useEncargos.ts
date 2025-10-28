@@ -186,32 +186,14 @@ export const useUpdateEncargo = () => {
 
       if (encargoError) throw encargoError;
 
-      // Si hay productos, eliminar los antiguos y añadir los nuevos
-      if (productos) {
-        // Eliminar productos anteriores
-        const { error: deleteError } = await supabase
-          .from("encargo_productos")
-          .delete()
-          .eq("encargo_id", id);
+      // Si hay productos, usar función RPC para actualizarlos
+      if (productos !== undefined) {
+        const { error: rpcError } = await supabase.rpc("update_encargo_productos", {
+          p_encargo_id: id,
+          p_productos: JSON.stringify(productos)
+        });
 
-        if (deleteError) throw deleteError;
-
-        // Insertar nuevos productos
-        if (productos.length > 0) {
-          const productosData = productos.map(p => ({
-            encargo_id: id,
-            producto_id: p.producto_id,
-            cantidad: p.cantidad,
-            precio_unitario: p.precio_unitario,
-            observaciones: p.observaciones,
-          }));
-
-          const { error: insertError } = await supabase
-            .from("encargo_productos")
-            .insert(productosData);
-
-          if (insertError) throw insertError;
-        }
+        if (rpcError) throw rpcError;
       }
 
       // Enviar notificación si cambia el estado a entregado, cancelado o listo_recoger
