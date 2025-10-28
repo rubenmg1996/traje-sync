@@ -182,7 +182,7 @@ export const useUpdateEncargo = () => {
         .update(encargoData)
         .eq("id", id)
         .select()
-        .single();
+        .maybeSingle();
 
       if (encargoError) throw encargoError;
 
