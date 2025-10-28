@@ -190,7 +190,7 @@ export const useUpdateEncargo = () => {
       if (productos !== undefined) {
         const { error: rpcError } = await supabase.rpc("update_encargo_productos", {
           p_encargo_id: id,
-          p_productos: JSON.stringify(productos)
+          p_productos: productos as any,
         });
 
         if (rpcError) throw rpcError;
