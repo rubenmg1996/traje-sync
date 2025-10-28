@@ -117,11 +117,13 @@ const EncargoFormDialog = ({ encargo, open, onOpenChange }: EncargoFormDialogPro
   };
 
   const updateProduct = (index: number, field: keyof EncargoProducto, value: any) => {
-    const updated = [...selectedProducts];
-    updated[index] = { ...updated[index], [field]: value };
-    setSelectedProducts(updated);
+    setSelectedProducts((prev) => {
+      const updated = [...prev];
+      const current = (updated[index] ?? { producto_id: "", cantidad: 1, precio_unitario: 0, observaciones: "" }) as EncargoProducto;
+      updated[index] = { ...current, [field]: value };
+      return updated;
+    });
   };
-
   const calculateTotal = () => {
     return selectedProducts.reduce(
       (sum, p) => sum + (p.cantidad * p.precio_unitario),
@@ -331,11 +333,17 @@ const EncargoFormDialog = ({ encargo, open, onOpenChange }: EncargoFormDialogPro
                           disabled={!productos || productos.length === 0}
                           value={product.producto_id}
                           onValueChange={(value) => {
-                            updateProduct(index, "producto_id", value);
                             const selectedProd = productos?.find(p => p.id === value);
-                            if (selectedProd) {
-                              updateProduct(index, "precio_unitario", parseFloat(selectedProd.precio.toString()));
-                            }
+                            setSelectedProducts((prev) => {
+                              const updated = [...prev];
+                              const current = (updated[index] ?? { producto_id: value, cantidad: 1, precio_unitario: 0, observaciones: "" }) as EncargoProducto;
+                              updated[index] = {
+                                ...current,
+                                producto_id: value,
+                                precio_unitario: selectedProd ? parseFloat(selectedProd.precio.toString()) : current.precio_unitario,
+                              };
+                              return updated;
+                            });
                           }}
                         >
                           <SelectTrigger>
