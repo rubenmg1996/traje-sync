@@ -327,6 +327,7 @@ const EncargoFormDialog = ({ encargo, open, onOpenChange }: EncargoFormDialogPro
                       <div className="md:col-span-2">
                         <FormLabel>Producto</FormLabel>
                         <Select
+                          key={`${index}-${product.producto_id}`}
                           disabled={!productos || productos.length === 0}
                           value={product.producto_id}
                           onValueChange={(value) => {
@@ -338,7 +339,7 @@ const EncargoFormDialog = ({ encargo, open, onOpenChange }: EncargoFormDialogPro
                           }}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="Selecciona producto" />
+                            <SelectValue key={product.producto_id} placeholder="Selecciona producto" />
                           </SelectTrigger>
                           <SelectContent>
                             {productos?.map((p) => (
