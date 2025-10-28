@@ -201,6 +201,65 @@ export type Database = {
           },
         ]
       }
+      facturas: {
+        Row: {
+          correo_cliente: string | null
+          created_at: string
+          encargo_id: string | null
+          estado: string
+          fecha_emision: string
+          holded_id: string | null
+          id: string
+          nombre_cliente: string
+          numero_documento: string | null
+          pdf_url: string | null
+          telefono_cliente: string | null
+          tipo: string
+          total: number
+          updated_at: string
+        }
+        Insert: {
+          correo_cliente?: string | null
+          created_at?: string
+          encargo_id?: string | null
+          estado?: string
+          fecha_emision?: string
+          holded_id?: string | null
+          id?: string
+          nombre_cliente: string
+          numero_documento?: string | null
+          pdf_url?: string | null
+          telefono_cliente?: string | null
+          tipo?: string
+          total?: number
+          updated_at?: string
+        }
+        Update: {
+          correo_cliente?: string | null
+          created_at?: string
+          encargo_id?: string | null
+          estado?: string
+          fecha_emision?: string
+          holded_id?: string | null
+          id?: string
+          nombre_cliente?: string
+          numero_documento?: string | null
+          pdf_url?: string | null
+          telefono_cliente?: string | null
+          tipo?: string
+          total?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "facturas_encargo_id_fkey"
+            columns: ["encargo_id"]
+            isOneToOne: false
+            referencedRelation: "encargos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       incidencias: {
         Row: {
           asignado_a: string | null

@@ -15,6 +15,7 @@ import Stock from "./pages/Stock";
 import Encargos from "./pages/Encargos";
 import EncargoDetalle from "./pages/EncargoDetalle";
 import Facturacion from "./pages/Facturacion";
+import FacturaDetalle from "./pages/FacturaDetalle";
 import Configuracion from "./pages/Configuracion";
 import NotFound from "./pages/NotFound";
 
@@ -114,6 +115,16 @@ const App = () => (
               <ProtectedRoute>
                 <Layout>
                   <Facturacion />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/factura/:id"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <FacturaDetalle />
                 </Layout>
               </ProtectedRoute>
             }

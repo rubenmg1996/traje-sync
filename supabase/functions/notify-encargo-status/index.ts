@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -26,6 +27,7 @@ interface NotificationRequest {
   tipoEntrega?: string;
   direccionEnvio?: string;
   fechaEntregaEstimada?: string;
+  encargoId?: string;
 }
 
 serve(async (req) => {
@@ -35,19 +37,20 @@ serve(async (req) => {
 
   try {
     console.log('Notify encargo status function invoked');
-    const { 
-      clienteNombre, 
-      clienteTelefono, 
+    const {
+      clienteNombre,
+      clienteTelefono,
       clienteEmail,
-      numeroEncargo, 
+      numeroEncargo,
       estado,
       precioTotal,
-      productos,
+      productos = [],
       notas,
       fechaCreacion,
       tipoEntrega,
       direccionEnvio,
-      fechaEntregaEstimada
+      fechaEntregaEstimada,
+      encargoId
     }: NotificationRequest = await req.json();
     console.log('Request data:', { clienteNombre, clienteTelefono, clienteEmail, numeroEncargo, estado });
 
@@ -163,7 +166,7 @@ serve(async (req) => {
 
     // Crear factura en Holded si el estado es "entregado"
     let holdedInvoiceId = null;
-    if (estado === 'entregado') {
+    if (estado === 'entregado' && encargoId) {
       try {
         const holdedApiKey = Deno.env.get('HOLDED_API_KEY');
         
@@ -205,6 +208,32 @@ serve(async (req) => {
             const holdedData = await holdedResponse.json();
             holdedInvoiceId = holdedData.id;
             console.log('Holded invoice created successfully:', holdedInvoiceId);
+            
+            // Guardar factura en la base de datos
+            const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+            const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+            const supabase = createClient(supabaseUrl, supabaseKey);
+
+            const { error: insertError } = await supabase
+              .from('facturas')
+              .insert({
+                holded_id: holdedData.id,
+                encargo_id: encargoId,
+                tipo: 'factura',
+                numero_documento: holdedData.docNumber || numeroEncargo,
+                nombre_cliente: clienteNombre,
+                correo_cliente: clienteEmail,
+                telefono_cliente: clienteTelefono,
+                total: precioTotal || 0,
+                estado: 'emitida',
+                pdf_url: holdedData.pdfUrl,
+              });
+
+            if (insertError) {
+              console.error('Error saving invoice to database:', insertError);
+            } else {
+              console.log('Invoice saved to database successfully');
+            }
           } else {
             const errorText = await holdedResponse.text();
             console.error('Error creating Holded invoice:', holdedResponse.status, errorText);

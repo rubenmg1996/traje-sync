@@ -251,7 +251,8 @@ export const useUpdateEncargo = () => {
               fechaCreacion: updatedEncargo.fecha_creacion,
               tipoEntrega: encargoConProductos?.tipo_entrega,
               direccionEnvio: encargoConProductos?.direccion_envio,
-              fechaEntregaEstimada: encargoConProductos?.fecha_entrega_estimada
+              fechaEntregaEstimada: encargoConProductos?.fecha_entrega_estimada,
+              encargoId: id // Añadido para crear la factura
             }
           });
         } catch (notifError) {
