@@ -327,6 +327,7 @@ const EncargoFormDialog = ({ encargo, open, onOpenChange }: EncargoFormDialogPro
                       <div className="md:col-span-2">
                         <FormLabel>Producto</FormLabel>
                         <Select
+                          disabled={!productos || productos.length === 0}
                           value={product.producto_id}
                           onValueChange={(value) => {
                             updateProduct(index, "producto_id", value);

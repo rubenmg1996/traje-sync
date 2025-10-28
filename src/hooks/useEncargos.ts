@@ -129,6 +129,7 @@ export const useEncargo = (id: string) => {
 export const useCreateEncargo = () => {
   const queryClient = useQueryClient();
 
+  return useMutation({
     mutationFn: async (encargo: Omit<Encargo, "id" | "numero_encargo" | "fecha_actualizacion">) => {
       // Mover la creación a una función de backend para evitar problemas de RLS
       const { data, error } = await supabase.functions.invoke("create-encargo", {
