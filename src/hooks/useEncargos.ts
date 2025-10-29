@@ -188,12 +188,15 @@ export const useUpdateEncargo = () => {
 
       // Si hay productos, usar función RPC para actualizarlos
       if (productos !== undefined) {
-        const { error: rpcError } = await supabase.rpc("update_encargo_productos", {
-          p_encargo_id: id,
-          p_productos: productos as any,
-        });
+        // Solo actualizar productos si hay elementos; evita fallo de permisos al cambiar solo el estado
+        if (Array.isArray(productos) && productos.length > 0) {
+          const { error: rpcError } = await supabase.rpc("update_encargo_productos", {
+            p_encargo_id: id,
+            p_productos: productos as any,
+          });
 
-        if (rpcError) throw rpcError;
+          if (rpcError) throw rpcError;
+        }
       }
 
       // Enviar notificación si cambia el estado a entregado, cancelado o listo_recoger
