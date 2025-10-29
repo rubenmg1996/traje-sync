@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.notify-encargo-status]
 verify_jwt = false
+
+[functions.notify-incident-status]
+verify_jwt = false

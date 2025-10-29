@@ -87,14 +87,37 @@ export const useCreateIncidencia = () => {
       const { data, error } = await supabase
         .from("incidencias")
         .insert([incidencia])
-        .select()
+        .select(`
+          *,
+          creador:employees!creado_por(nombre, apellido)
+        `)
         .single();
 
       if (error) throw error;
+      
+      // Enviar notificación si prioridad es alta
+      if (incidencia.prioridad === 'alta') {
+        try {
+          await supabase.functions.invoke('notify-incident-status', {
+            body: {
+              incidenciaId: data.id,
+              titulo: incidencia.titulo,
+              descripcion: incidencia.descripcion,
+              prioridad: incidencia.prioridad,
+              estado: 'pendiente',
+              creadoPorNombre: data.creador ? `${data.creador.nombre} ${data.creador.apellido}` : undefined
+            }
+          });
+        } catch (notifError) {
+          console.error('Error sending incident notification:', notifError);
+        }
+      }
+      
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["incidencias"] });
+      queryClient.invalidateQueries({ queryKey: ["incidencias-stats"] });
       toast.success("Incidencia creada correctamente");
     },
     onError: (error: Error) => {
@@ -109,10 +132,13 @@ export const useUpdateIncidencia = () => {
   return useMutation({
     mutationFn: async ({
       id,
+      previousPrioridad,
       ...updates
     }: {
       id: string;
+      previousPrioridad?: "baja" | "media" | "alta";
       estado?: "pendiente" | "en_curso" | "resuelta";
+      prioridad?: "baja" | "media" | "alta";
       asignado_a?: string | null;
       comentarios?: string;
       fecha_resolucion?: string;
@@ -121,15 +147,43 @@ export const useUpdateIncidencia = () => {
         .from("incidencias")
         .update(updates)
         .eq("id", id)
-        .select()
+        .select(`
+          *,
+          creador:employees!creado_por(nombre, apellido)
+        `)
         .single();
 
       if (error) throw error;
+      
+      // Enviar notificación si:
+      // 1. La prioridad cambia a 'alta' desde otro valor
+      // 2. El estado resultante NO es 'en_curso'
+      const changedToHigh = updates.prioridad === 'alta' && previousPrioridad && previousPrioridad !== 'alta';
+      const finalEstado = updates.estado || data.estado;
+      
+      if (changedToHigh && finalEstado !== 'en_curso') {
+        try {
+          await supabase.functions.invoke('notify-incident-status', {
+            body: {
+              incidenciaId: data.id,
+              titulo: data.titulo,
+              descripcion: data.descripcion,
+              prioridad: data.prioridad,
+              estado: finalEstado,
+              creadoPorNombre: data.creador ? `${data.creador.nombre} ${data.creador.apellido}` : undefined
+            }
+          });
+        } catch (notifError) {
+          console.error('Error sending incident notification:', notifError);
+        }
+      }
+      
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["incidencias"] });
       queryClient.invalidateQueries({ queryKey: ["incidencia"] });
+      queryClient.invalidateQueries({ queryKey: ["incidencias-stats"] });
       toast.success("Incidencia actualizada correctamente");
     },
     onError: (error: Error) => {

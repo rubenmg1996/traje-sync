@@ -54,7 +54,16 @@ serve(async (req) => {
     }: NotificationRequest = await req.json();
     console.log('Request data:', { clienteNombre, clienteTelefono, clienteEmail, numeroEncargo, estado });
 
-    // Aunque no haya teléfono de cliente, enviaremos al número adicional configurado
+    // Obtener configuración de destinatarios desde settings
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
+    const { data: settings } = await supabaseAdmin
+      .from('settings')
+      .select('notification_recipients')
+      .eq('id', 'site')
+      .single();
 
     const twilioAccountSid = Deno.env.get('TWILIO_ACCOUNT_SID');
     const twilioAuthToken = Deno.env.get('TWILIO_AUTH_TOKEN');
@@ -75,22 +84,63 @@ serve(async (req) => {
       );
     }
 
-    // Helper para formatear a WhatsApp con prefijo +34
-    const formatEsWhatsapp = (phone: string) => {
+    // Helper para normalizar teléfonos españoles
+    const normalizePhone = (phone: string): string => {
       const digits = phone.replace(/\D/g, '');
-      let local = digits.startsWith('0034') ? digits.slice(4) : digits.startsWith('34') ? digits.slice(2) : digits;
-      if (local.startsWith('0')) local = local.slice(1);
-      return `whatsapp:+34${local}`;
+      
+      // Si empieza con 0034, quitar y añadir +34
+      if (digits.startsWith('0034')) {
+        return `whatsapp:+34${digits.slice(4)}`;
+      }
+      
+      // Si empieza con 34, añadir +
+      if (digits.startsWith('34') && digits.length > 9) {
+        return `whatsapp:+${digits}`;
+      }
+      
+      // Si empieza con 0 o tiene 9 dígitos, asumir España y añadir +34
+      if (digits.startsWith('0')) {
+        return `whatsapp:+34${digits.slice(1)}`;
+      }
+      
+      if (digits.length === 9 && !digits.startsWith('34')) {
+        return `whatsapp:+34${digits}`;
+      }
+      
+      // Si ya tiene prefijo internacional, usarlo
+      if (digits.startsWith('+') || phone.startsWith('+')) {
+        return `whatsapp:${phone.startsWith('+') ? phone : '+' + digits}`;
+      }
+      
+      return `whatsapp:+34${digits}`;
     };
 
-    // Preparar destinatarios: cliente (si existe) y número adicional solicitado
+    // Preparar destinatarios: cliente (si existe) + destinatarios administrativos
     const recipientsSet = new Set<string>();
+    
+    // Añadir cliente si existe teléfono
     if (clienteTelefono && clienteTelefono.trim()) {
-      recipientsSet.add(formatEsWhatsapp(clienteTelefono));
+      recipientsSet.add(normalizePhone(clienteTelefono));
     }
-    // Número anterior proporcionado por el cliente
-    recipientsSet.add(formatEsWhatsapp('676138583'));
+    
+    // Añadir destinatarios administrativos desde settings
+    if (settings?.notification_recipients && Array.isArray(settings.notification_recipients)) {
+      settings.notification_recipients.forEach((phone: string) => {
+        if (phone && phone.trim()) {
+          recipientsSet.add(normalizePhone(phone));
+        }
+      });
+    }
+    
     const recipients = Array.from(recipientsSet);
+    
+    if (recipients.length === 0) {
+      console.warn('No recipients configured');
+      return new Response(
+        JSON.stringify({ success: false, error: 'No recipients configured' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
+    }
 
     let message = '';
     const tipoEntregaTexto = tipoEntrega === 'domicilio' ? '🚚 Envío a domicilio' : '📍 Recoger en tienda';
@@ -171,69 +221,65 @@ serve(async (req) => {
         const holdedApiKey = Deno.env.get('HOLDED_API_KEY');
         
         if (holdedApiKey) {
-          console.log('Creating invoice in Holded...');
-          
-          // Preparar items para Holded
-          const holdedItems = productos?.map(item => ({
-            name: item.productos?.nombre || 'Producto',
-            units: item.cantidad,
-            subtotal: item.precio_unitario * item.cantidad,
-            discount: 0,
-            tax: 21, // IVA por defecto 21%
-            desc: item.observaciones || ''
-          })) || [];
-
-          const holdedBody = {
-            docType: 'invoice',
-            contactName: clienteNombre,
-            contactEmail: clienteEmail || '',
-            date: Math.floor(new Date(fechaCreacion || Date.now()).getTime() / 1000),
-            items: holdedItems,
-            notes: notas || `Encargo ${numeroEncargo}`,
-            invoiceNum: numeroEncargo
-          };
-
-          console.log('Holded request body:', JSON.stringify(holdedBody, null, 2));
-
-          const holdedResponse = await fetch('https://api.holded.com/api/invoicing/v1/documents/invoice', {
-            method: 'POST',
-            headers: {
-              'Key': holdedApiKey,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(holdedBody),
-          });
-
-          if (holdedResponse.ok) {
-            const holdedData = await holdedResponse.json();
-            holdedInvoiceId = holdedData.id;
-            console.log('Holded invoice created successfully:', holdedInvoiceId);
+            console.log('Creating invoice in Holded...');
             
-            // Guardar factura en la base de datos
-            const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-            const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-            const supabase = createClient(supabaseUrl, supabaseKey);
+            // Preparar items para Holded
+            const holdedItems = productos?.map(item => ({
+              name: item.productos?.nombre || 'Producto',
+              units: item.cantidad,
+              subtotal: item.precio_unitario * item.cantidad,
+              discount: 0,
+              tax: 21, // IVA por defecto 21%
+              desc: item.observaciones || ''
+            })) || [];
 
-            const { error: insertError } = await supabase
-              .from('facturas')
-              .insert({
-                holded_id: holdedData.id,
-                encargo_id: encargoId,
-                tipo: 'factura',
-                numero_documento: holdedData.docNumber || numeroEncargo,
-                nombre_cliente: clienteNombre,
-                correo_cliente: clienteEmail,
-                telefono_cliente: clienteTelefono,
-                total: precioTotal || 0,
-                estado: 'emitida',
-                pdf_url: holdedData.pdfUrl,
-              });
+            const holdedBody = {
+              docType: 'invoice',
+              contactName: clienteNombre,
+              contactEmail: clienteEmail || '',
+              date: Math.floor(new Date(fechaCreacion || Date.now()).getTime() / 1000),
+              items: holdedItems,
+              notes: notas || `Encargo ${numeroEncargo}`,
+              invoiceNum: numeroEncargo
+            };
 
-            if (insertError) {
-              console.error('Error saving invoice to database:', insertError);
-            } else {
-              console.log('Invoice saved to database successfully');
-            }
+            console.log('Holded request body:', JSON.stringify(holdedBody, null, 2));
+
+            const holdedResponse = await fetch('https://api.holded.com/api/invoicing/v1/documents/invoice', {
+              method: 'POST',
+              headers: {
+                'Key': holdedApiKey,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(holdedBody),
+            });
+
+            if (holdedResponse.ok) {
+              const holdedData = await holdedResponse.json();
+              holdedInvoiceId = holdedData.id;
+              console.log('Holded invoice created successfully:', holdedInvoiceId);
+              
+              // Guardar factura en la base de datos usando el mismo cliente admin
+              const { error: insertError } = await supabaseAdmin
+                .from('facturas')
+                .insert({
+                  holded_id: holdedData.id,
+                  encargo_id: encargoId,
+                  tipo: 'factura',
+                  numero_documento: holdedData.docNumber || numeroEncargo,
+                  nombre_cliente: clienteNombre,
+                  correo_cliente: clienteEmail,
+                  telefono_cliente: clienteTelefono,
+                  total: precioTotal || 0,
+                  estado: 'emitida',
+                  pdf_url: holdedData.pdfUrl,
+                });
+
+              if (insertError) {
+                console.error('Error saving invoice to database:', insertError);
+              } else {
+                console.log('Invoice saved to database successfully');
+              }
           } else {
             const errorText = await holdedResponse.text();
             console.error('Error creating Holded invoice:', holdedResponse.status, errorText);

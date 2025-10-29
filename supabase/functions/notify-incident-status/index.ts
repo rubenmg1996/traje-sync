@@ -7,9 +7,13 @@ const corsHeaders = {
 };
 
 interface NotificationRequest {
-  productName: string;
-  currentStock: number;
-  minStock: number;
+  incidenciaId?: string;
+  titulo: string;
+  descripcion: string;
+  prioridad: 'baja' | 'media' | 'alta';
+  estado: 'pendiente' | 'en_curso' | 'resuelta';
+  creadoPorNombre?: string;
+  creadoPorTelefono?: string;
 }
 
 serve(async (req) => {
@@ -18,11 +22,28 @@ serve(async (req) => {
   }
 
   try {
-    console.log('Notify low stock WhatsApp function invoked');
-    const { productName, currentStock, minStock }: NotificationRequest = await req.json();
-    console.log('Request data:', { productName, currentStock, minStock });
+    console.log('Notify incident status function invoked');
+    const {
+      incidenciaId,
+      titulo,
+      descripcion,
+      prioridad,
+      estado,
+      creadoPorNombre,
+      creadoPorTelefono
+    }: NotificationRequest = await req.json();
+    
+    console.log('Request data:', { incidenciaId, titulo, prioridad, estado });
 
-    // Obtener configuración de destinatarios desde settings
+    // Solo enviar notificación si prioridad es alta
+    if (prioridad !== 'alta') {
+      return new Response(
+        JSON.stringify({ success: true, message: 'No notification needed for non-high priority' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
+    }
+
+    // Obtener configuración desde settings
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
@@ -44,10 +65,22 @@ serve(async (req) => {
     });
 
     if (!twilioAccountSid || !twilioAuthToken || !twilioWhatsappFrom) {
-      throw new Error('Credenciales de Twilio no configuradas');
+      console.error('Twilio credentials not configured');
+      await supabaseAdmin.from('sync_logs').insert({
+        source: 'twilio',
+        action: 'incident_alert',
+        success: false,
+        message: 'Credenciales de Twilio no configuradas',
+        details: { incidenciaId, titulo, prioridad }
+      });
+      
+      return new Response(
+        JSON.stringify({ success: false, error: 'Twilio not configured' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
     }
 
-    // Helper para normalizar teléfonos españoles
+    // Helper para normalizar teléfonos
     const normalizePhone = (phone: string): string => {
       const digits = phone.replace(/\D/g, '');
       
@@ -74,7 +107,7 @@ serve(async (req) => {
       return `whatsapp:+34${digits}`;
     };
 
-    // Obtener destinatarios administrativos desde settings
+    // Obtener destinatarios administrativos (solo admins para incidencias)
     const recipientsSet = new Set<string>();
     
     if (settings?.notification_recipients && Array.isArray(settings.notification_recipients)) {
@@ -89,13 +122,25 @@ serve(async (req) => {
     
     if (recipients.length === 0) {
       console.warn('No recipients configured');
+      await supabaseAdmin.from('sync_logs').insert({
+        source: 'twilio',
+        action: 'incident_alert',
+        success: false,
+        message: 'No hay destinatarios configurados',
+        details: { incidenciaId, titulo, prioridad }
+      });
+      
       return new Response(
         JSON.stringify({ success: false, error: 'No recipients configured' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
       );
     }
 
-    const message = `⚠️ *ALERTA DE STOCK BAJO*\n\nProducto: ${productName}\nStock actual: ${currentStock} unidades\nStock mínimo: ${minStock} unidades\n\n¡Es necesario reabastecer!`;
+    // Preparar mensaje
+    const estadoEmoji = estado === 'pendiente' ? '🆕' : estado === 'en_curso' ? '⚙️' : '✅';
+    const creadoPor = creadoPorNombre ? `\nReportado por: ${creadoPorNombre}` : '';
+    
+    const message = `🚨 *INCIDENCIA PRIORIDAD ALTA*\n\n${estadoEmoji} ${titulo}\n\n${descripcion}${creadoPor}\n\nEstado: ${estado}\n\n¡Requiere atención inmediata!`;
 
     const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Messages.json`;
     const sendResults: Array<{ to: string; sid?: string; status: number; ok: boolean }> = [];
@@ -137,12 +182,19 @@ serve(async (req) => {
     // Registrar en sync_logs
     await supabaseAdmin.from('sync_logs').insert({
       source: 'twilio',
-      action: 'low_stock_alert',
+      action: 'incident_alert',
       success: messageSids.length > 0,
       message: messageSids.length > 0 
-        ? `Alerta enviada a ${messageSids.length} destinatario(s)` 
-        : 'No se pudo enviar alerta',
-      details: { product: productName, currentStock, minStock, sentTo: recipients.length }
+        ? `Alerta de incidencia enviada a ${messageSids.length} destinatario(s)` 
+        : 'No se pudo enviar alerta de incidencia',
+      details: { 
+        incidenciaId, 
+        titulo, 
+        prioridad, 
+        estado, 
+        sentTo: recipients.length,
+        successCount: messageSids.length 
+      }
     });
 
     if (!messageSids.length) {
@@ -153,21 +205,18 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, messageSids, sentTo: recipients }),
-      { 
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
+      JSON.stringify({ 
+        success: true, 
+        messageSids, 
+        sentTo: recipients 
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
-
   } catch (error: any) {
-    console.error('Error en notify-low-stock-whatsapp:', error);
+    console.error('Error in notify-incident-status function:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
-      { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }
 });

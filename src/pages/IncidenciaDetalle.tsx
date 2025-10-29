@@ -45,7 +45,11 @@ const IncidenciaDetalle = () => {
   const isAdmin = currentEmployee?.rol === "administrador";
 
   const handleEstadoChange = (nuevoEstado: "pendiente" | "en_curso" | "resuelta") => {
-    const updates: any = { id: id!, estado: nuevoEstado };
+    const updates: any = { 
+      id: id!, 
+      estado: nuevoEstado,
+      previousPrioridad: incidencia.prioridad
+    };
     
     if (nuevoEstado === "resuelta") {
       updates.fecha_resolucion = new Date().toISOString();
@@ -54,10 +58,19 @@ const IncidenciaDetalle = () => {
     updateIncidencia.mutate(updates);
   };
 
+  const handlePrioridadChange = (nuevaPrioridad: "baja" | "media" | "alta") => {
+    updateIncidencia.mutate({
+      id: id!,
+      prioridad: nuevaPrioridad,
+      previousPrioridad: incidencia.prioridad
+    });
+  };
+
   const handleAsignar = (employeeId: string) => {
     updateIncidencia.mutate({
       id: id!,
       asignado_a: employeeId === "sin_asignar" ? null : employeeId,
+      previousPrioridad: incidencia.prioridad
     });
   };
 
@@ -72,6 +85,7 @@ const IncidenciaDetalle = () => {
       {
         id: id!,
         comentarios: nuevosComentarios,
+        previousPrioridad: incidencia.prioridad
       },
       {
         onSuccess: () => {
@@ -211,25 +225,44 @@ const IncidenciaDetalle = () => {
             </div>
 
             {isAdmin && (
-              <div className="space-y-2">
-                <Label>Asignar a</Label>
-                <Select
-                  value={incidencia.asignado_a || "sin_asignar"}
-                  onValueChange={handleAsignar}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="sin_asignar">Sin asignar</SelectItem>
-                    {employees?.map((emp) => (
-                      <SelectItem key={emp.id} value={emp.id}>
-                        {emp.nombre} {emp.apellido}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <>
+                <div className="space-y-2">
+                  <Label>Prioridad</Label>
+                  <Select
+                    value={incidencia.prioridad}
+                    onValueChange={handlePrioridadChange}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="baja">Baja</SelectItem>
+                      <SelectItem value="media">Media</SelectItem>
+                      <SelectItem value="alta">Alta</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Asignar a</Label>
+                  <Select
+                    value={incidencia.asignado_a || "sin_asignar"}
+                    onValueChange={handleAsignar}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="sin_asignar">Sin asignar</SelectItem>
+                      {employees?.map((emp) => (
+                        <SelectItem key={emp.id} value={emp.id}>
+                          {emp.nombre} {emp.apellido}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
             )}
 
             <div className="space-y-2">
