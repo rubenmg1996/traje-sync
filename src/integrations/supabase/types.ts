@@ -419,6 +419,105 @@ export type Database = {
         }
         Relationships: []
       }
+      settings: {
+        Row: {
+          created_at: string | null
+          default_stock_min: number | null
+          holded_api_key: string | null
+          id: string
+          notification_recipients: Json | null
+          store_address: string | null
+          store_email: string | null
+          store_name: string | null
+          store_phone: string | null
+          sync_auto: boolean | null
+          sync_interval: string | null
+          tax_id: string | null
+          templates: Json | null
+          twilio_account_sid: string | null
+          twilio_auth_token: string | null
+          twilio_whatsapp_from: string | null
+          updated_at: string | null
+          woo_consumer_key: string | null
+          woo_consumer_secret: string | null
+          woo_url: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          default_stock_min?: number | null
+          holded_api_key?: string | null
+          id?: string
+          notification_recipients?: Json | null
+          store_address?: string | null
+          store_email?: string | null
+          store_name?: string | null
+          store_phone?: string | null
+          sync_auto?: boolean | null
+          sync_interval?: string | null
+          tax_id?: string | null
+          templates?: Json | null
+          twilio_account_sid?: string | null
+          twilio_auth_token?: string | null
+          twilio_whatsapp_from?: string | null
+          updated_at?: string | null
+          woo_consumer_key?: string | null
+          woo_consumer_secret?: string | null
+          woo_url?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          default_stock_min?: number | null
+          holded_api_key?: string | null
+          id?: string
+          notification_recipients?: Json | null
+          store_address?: string | null
+          store_email?: string | null
+          store_name?: string | null
+          store_phone?: string | null
+          sync_auto?: boolean | null
+          sync_interval?: string | null
+          tax_id?: string | null
+          templates?: Json | null
+          twilio_account_sid?: string | null
+          twilio_auth_token?: string | null
+          twilio_whatsapp_from?: string | null
+          updated_at?: string | null
+          woo_consumer_key?: string | null
+          woo_consumer_secret?: string | null
+          woo_url?: string | null
+        }
+        Relationships: []
+      }
+      sync_logs: {
+        Row: {
+          action: string
+          created_at: string | null
+          details: Json | null
+          id: string
+          message: string | null
+          source: string
+          success: boolean
+        }
+        Insert: {
+          action: string
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          message?: string | null
+          source: string
+          success: boolean
+        }
+        Update: {
+          action?: string
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          message?: string | null
+          source?: string
+          success?: boolean
+        }
+        Relationships: []
+      }
       work_schedules: {
         Row: {
           created_at: string | null
