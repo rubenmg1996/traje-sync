@@ -61,13 +61,13 @@ serve(async (req) => {
 
     const { data: settings } = await supabaseAdmin
       .from('settings')
-      .select('notification_recipients')
+      .select('notification_recipients, twilio_account_sid, twilio_auth_token, twilio_whatsapp_from, holded_api_key')
       .eq('id', 'site')
       .single();
 
-    const twilioAccountSid = Deno.env.get('TWILIO_ACCOUNT_SID');
-    const twilioAuthToken = Deno.env.get('TWILIO_AUTH_TOKEN');
-    const twilioWhatsappFrom = Deno.env.get('TWILIO_WHATSAPP_FROM');
+    const twilioAccountSid = settings?.twilio_account_sid || Deno.env.get('TWILIO_ACCOUNT_SID');
+    const twilioAuthToken = settings?.twilio_auth_token || Deno.env.get('TWILIO_AUTH_TOKEN');
+    const twilioWhatsappFrom = settings?.twilio_whatsapp_from || Deno.env.get('TWILIO_WHATSAPP_FROM');
 
     console.log('Twilio config:', {
       hasSid: !!twilioAccountSid,
@@ -218,10 +218,10 @@ serve(async (req) => {
     let holdedErrorMsg: string | null = null;
     if (estado === 'entregado' && encargoId) {
       try {
-        const holdedApiKey = Deno.env.get('HOLDED_API_KEY');
+        const holdedApiKey = settings?.holded_api_key || Deno.env.get('HOLDED_API_KEY');
         
         if (holdedApiKey) {
-          console.log('Creating invoice in Holded...');
+          console.log('Creating invoice in Holded... (key source:', settings?.holded_api_key ? 'settings' : 'env', ')');
 
           // 1) Cargar datos completos del encargo si no vienen en el body
           let encargo:
