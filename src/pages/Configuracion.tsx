@@ -248,6 +248,11 @@ const Configuracion = () => {
                   id="wooKey"
                   type={showWooKey ? "text" : "password"}
                   value={wooKey}
+                  onFocus={(e) => {
+                    if (e.target.value === "********") {
+                      setWooKey("");
+                    }
+                  }}
                   onChange={(e) => {
                     setWooKey(e.target.value);
                     setWooKeyModified(true);
@@ -270,6 +275,11 @@ const Configuracion = () => {
                   id="wooSecret"
                   type={showWooSecret ? "text" : "password"}
                   value={wooSecret}
+                  onFocus={(e) => {
+                    if (e.target.value === "********") {
+                      setWooSecret("");
+                    }
+                  }}
                   onChange={(e) => {
                     setWooSecret(e.target.value);
                     setWooSecretModified(true);
@@ -347,6 +357,11 @@ const Configuracion = () => {
                   id="twilioSid"
                   type={showTwilioSid ? "text" : "password"}
                   value={twilioSid}
+                  onFocus={(e) => {
+                    if (e.target.value === "********") {
+                      setTwilioSid("");
+                    }
+                  }}
                   onChange={(e) => {
                     setTwilioSid(e.target.value);
                     setTwilioSidModified(true);
@@ -369,6 +384,11 @@ const Configuracion = () => {
                   id="twilioToken"
                   type={showTwilioToken ? "text" : "password"}
                   value={twilioToken}
+                  onFocus={(e) => {
+                    if (e.target.value === "********") {
+                      setTwilioToken("");
+                    }
+                  }}
                   onChange={(e) => {
                     setTwilioToken(e.target.value);
                     setTwilioTokenModified(true);
@@ -470,6 +490,11 @@ const Configuracion = () => {
                 id="holdedKey"
                 type={showHoldedKey ? "text" : "password"}
                 value={holdedKey}
+                onFocus={(e) => {
+                  if (e.target.value === "********") {
+                    setHoldedKey("");
+                  }
+                }}
                 onChange={(e) => {
                   setHoldedKey(e.target.value);
                   setHoldedKeyModified(true);
