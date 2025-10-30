@@ -66,15 +66,20 @@ const FacturaDetalle = () => {
           <ArrowLeft className="mr-2 h-4 w-4" />
           Volver
         </Button>
-        {factura.holded_id && (
+        {(factura.pdf_url || factura.holded_id) && (
           <Button
             variant="outline"
-            onClick={() =>
-              window.open(`https://app.holded.com/documents/${factura.holded_id}`, "_blank")
-            }
+            onClick={() => {
+              if (factura.pdf_url) {
+                window.open(factura.pdf_url, "_blank");
+              } else {
+                // Si no hay PDF URL, abrir la sección de facturación de Holded
+                window.open("https://app.holded.com/#/invoicing/invoices", "_blank");
+              }
+            }}
           >
             <ExternalLink className="mr-2 h-4 w-4" />
-            Ver en Holded
+            {factura.pdf_url ? "Ver PDF" : "Abrir Holded"}
           </Button>
         )}
       </div>
@@ -152,19 +157,6 @@ const FacturaDetalle = () => {
         </Card>
       </div>
 
-      {factura.pdf_url && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Documento PDF</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Button variant="outline" onClick={() => window.open(factura.pdf_url, "_blank")}>
-              <ExternalLink className="mr-2 h-4 w-4" />
-              Descargar PDF
-            </Button>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 };
