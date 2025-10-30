@@ -270,19 +270,28 @@ serve(async (req) => {
             typeof precioTotal === 'number' ? precioTotal : encargo?.precio_total ?? 0;
           const notasDoc = notas || encargo?.notas || `Encargo ${numero}`;
 
-          const productosFuente = (productos && productos.length > 0)
-            ? productos.map((p) => ({
-                nombre: p.productos?.nombre || 'Producto',
-                cantidad: p.cantidad,
-                precio_unitario: p.precio_unitario ?? p.productos?.precio ?? 0,
-                observaciones: p.observaciones || ''
-              }))
-            : (encargo?.encargo_productos || []).map((ep) => ({
-                nombre: ep.productos?.nombre || 'Producto',
-                cantidad: ep.cantidad,
-                precio_unitario: ep.precio_unitario ?? ep.productos?.precio ?? 0,
-                observaciones: ep.observaciones || ''
-              }));
+          // Siempre usar los productos del encargo en BD para evitar precios 0 del body
+          type FuenteItem = { nombre: string; cantidad: number; precio_unitario: number; observaciones: string };
+          let productosFuente: FuenteItem[] = [];
+
+          if (encargo?.encargo_productos && encargo.encargo_productos.length > 0) {
+            productosFuente = encargo.encargo_productos.map((ep) => ({
+              nombre: ep.productos?.nombre || 'Producto',
+              cantidad: ep.cantidad,
+              precio_unitario: (ep.precio_unitario ?? ep.productos?.precio ?? 0) as number,
+              observaciones: ep.observaciones || ''
+            }));
+          } else if (productos && productos.length > 0) {
+            // Fallback solo si no se pudo cargar el encargo desde BD
+            productosFuente = productos.map((p) => ({
+              nombre: p.productos?.nombre || 'Producto',
+              cantidad: p.cantidad,
+              precio_unitario: (p.precio_unitario ?? p.productos?.precio ?? 0) as number,
+              observaciones: p.observaciones || ''
+            }));
+          } else {
+            console.warn('No hay productos para la factura: ni en BD ni en body');
+          }
 
           // 3) Mapear a items de Holded
           // En Holded, algunos entornos esperan precios en CÉNTIMOS y campos "quantity"/"unitPrice".
@@ -302,15 +311,11 @@ serve(async (req) => {
           // calcular total (sin IVA) para coherencia (euros)
           const totalCalculado = holdedItems.reduce((acc, it) => acc + (it.price * it.units), 0);
 
-          // Items para la petición a Holded (en céntimos + alias de campos)
+          // Items para la petición a Holded (en euros decimales + solo quantity/unitPrice)
           const requestItems = holdedItems.map((it) => ({
             name: it.name,
-            // Enviar ambos por compatibilidad
-            units: it.units,
             quantity: it.units,
-            // Precio en céntimos como entero (requerido por Holded en algunos entornos)
-            price: Math.round(it.price * 100),
-            unitPrice: Math.round(it.price * 100),
+            unitPrice: Number((it.price).toFixed(2)),
             tax: it.tax,
             ...(it.desc ? { desc: it.desc } : {})
           }));
