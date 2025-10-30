@@ -96,21 +96,21 @@ const Configuracion = () => {
       sync_interval: syncInterval,
     };
 
-    // Only update secrets if they were explicitly modified
-    if (wooKeyModified && wooKey && wooKey !== "********") {
-      updates.woo_consumer_key = wooKey;
+    // Actualizar secretos solo si fueron modificados; si se dejan vacíos, se limpian (null)
+    if (wooKeyModified) {
+      updates.woo_consumer_key = (!wooKey || wooKey === "********") ? null : wooKey;
     }
-    if (wooSecretModified && wooSecret && wooSecret !== "********") {
-      updates.woo_consumer_secret = wooSecret;
+    if (wooSecretModified) {
+      updates.woo_consumer_secret = (!wooSecret || wooSecret === "********") ? null : wooSecret;
     }
-    if (twilioSidModified && twilioSid && twilioSid !== "********") {
-      updates.twilio_account_sid = twilioSid;
+    if (twilioSidModified) {
+      updates.twilio_account_sid = (!twilioSid || twilioSid === "********") ? null : twilioSid;
     }
-    if (twilioTokenModified && twilioToken && twilioToken !== "********") {
-      updates.twilio_auth_token = twilioToken;
+    if (twilioTokenModified) {
+      updates.twilio_auth_token = (!twilioToken || twilioToken === "********") ? null : twilioToken;
     }
-    if (holdedKeyModified && holdedKey && holdedKey !== "********") {
-      updates.holded_api_key = holdedKey;
+    if (holdedKeyModified) {
+      updates.holded_api_key = (!holdedKey || holdedKey === "********") ? null : holdedKey;
     }
 
     updateSettings.mutate(updates);
