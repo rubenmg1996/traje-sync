@@ -41,6 +41,13 @@ const Configuracion = () => {
   const [syncAuto, setSyncAuto] = useState(false);
   const [syncInterval, setSyncInterval] = useState("off");
 
+  // Track which secret fields have been modified
+  const [wooKeyModified, setWooKeyModified] = useState(false);
+  const [wooSecretModified, setWooSecretModified] = useState(false);
+  const [twilioSidModified, setTwilioSidModified] = useState(false);
+  const [twilioTokenModified, setTwilioTokenModified] = useState(false);
+  const [holdedKeyModified, setHoldedKeyModified] = useState(false);
+
   // Load settings into form
   useEffect(() => {
     if (settings) {
@@ -64,6 +71,13 @@ const Configuracion = () => {
       setDefaultStockMin(settings.default_stock_min || 5);
       setSyncAuto(settings.sync_auto || false);
       setSyncInterval(settings.sync_interval || "off");
+
+      // Reset modification flags when settings load
+      setWooKeyModified(false);
+      setWooSecretModified(false);
+      setTwilioSidModified(false);
+      setTwilioTokenModified(false);
+      setHoldedKeyModified(false);
     }
   }, [settings]);
 
@@ -82,20 +96,20 @@ const Configuracion = () => {
       sync_interval: syncInterval,
     };
 
-    // Only update secrets if they were changed
-    if (wooKey && wooKey !== "********") {
+    // Only update secrets if they were explicitly modified
+    if (wooKeyModified && wooKey && wooKey !== "********") {
       updates.woo_consumer_key = wooKey;
     }
-    if (wooSecret && wooSecret !== "********") {
+    if (wooSecretModified && wooSecret && wooSecret !== "********") {
       updates.woo_consumer_secret = wooSecret;
     }
-    if (twilioSid && twilioSid !== "********") {
+    if (twilioSidModified && twilioSid && twilioSid !== "********") {
       updates.twilio_account_sid = twilioSid;
     }
-    if (twilioToken && twilioToken !== "********") {
+    if (twilioTokenModified && twilioToken && twilioToken !== "********") {
       updates.twilio_auth_token = twilioToken;
     }
-    if (holdedKey && holdedKey !== "********") {
+    if (holdedKeyModified && holdedKey && holdedKey !== "********") {
       updates.holded_api_key = holdedKey;
     }
 
@@ -234,7 +248,10 @@ const Configuracion = () => {
                   id="wooKey"
                   type={showWooKey ? "text" : "password"}
                   value={wooKey}
-                  onChange={(e) => setWooKey(e.target.value)}
+                  onChange={(e) => {
+                    setWooKey(e.target.value);
+                    setWooKeyModified(true);
+                  }}
                   placeholder="ck_..."
                 />
                 <Button
@@ -253,7 +270,10 @@ const Configuracion = () => {
                   id="wooSecret"
                   type={showWooSecret ? "text" : "password"}
                   value={wooSecret}
-                  onChange={(e) => setWooSecret(e.target.value)}
+                  onChange={(e) => {
+                    setWooSecret(e.target.value);
+                    setWooSecretModified(true);
+                  }}
                   placeholder="cs_..."
                 />
                 <Button
@@ -327,7 +347,10 @@ const Configuracion = () => {
                   id="twilioSid"
                   type={showTwilioSid ? "text" : "password"}
                   value={twilioSid}
-                  onChange={(e) => setTwilioSid(e.target.value)}
+                  onChange={(e) => {
+                    setTwilioSid(e.target.value);
+                    setTwilioSidModified(true);
+                  }}
                   placeholder="AC..."
                 />
                 <Button
@@ -346,7 +369,10 @@ const Configuracion = () => {
                   id="twilioToken"
                   type={showTwilioToken ? "text" : "password"}
                   value={twilioToken}
-                  onChange={(e) => setTwilioToken(e.target.value)}
+                  onChange={(e) => {
+                    setTwilioToken(e.target.value);
+                    setTwilioTokenModified(true);
+                  }}
                 />
                 <Button
                   type="button"
@@ -444,7 +470,10 @@ const Configuracion = () => {
                 id="holdedKey"
                 type={showHoldedKey ? "text" : "password"}
                 value={holdedKey}
-                onChange={(e) => setHoldedKey(e.target.value)}
+                onChange={(e) => {
+                  setHoldedKey(e.target.value);
+                  setHoldedKeyModified(true);
+                }}
                 placeholder="Ingresa tu API key de Holded"
               />
               <Button
