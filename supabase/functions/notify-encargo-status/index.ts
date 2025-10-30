@@ -284,17 +284,21 @@ serve(async (req) => {
                 observaciones: ep.observaciones || ''
               }));
 
-          // 3) Mapear a items de Holded (price en CENTIMOS, no subtotal)
-          const holdedItems = productosFuente.map((item) => ({
-            name: item.nombre,
-            units: item.cantidad,
-            price: Math.round((item.precio_unitario || 0) * 100),
-            tax: 21, // IVA 21% por defecto
-            desc: item.observaciones || ''
-          }));
+          // 3) Mapear a items de Holded
+          // IMPORTANTE: Holded espera el precio como número (puede ser decimal) en EUROS
+          const holdedItems = productosFuente.map((item) => {
+            const precioUnitario = parseFloat((item.precio_unitario || 0).toString());
+            return {
+              name: item.nombre,
+              units: item.cantidad,
+              price: precioUnitario, // Precio unitario en euros (número decimal)
+              tax: 21, // IVA 21%
+              ...(item.observaciones && { desc: item.observaciones })
+            };
+          });
 
-          // calcular total por si no se proporciona o se requiere coherencia
-          const totalCalculado = holdedItems.reduce((acc, it) => acc + (it.price * it.units), 0) / 100;
+          // calcular total (sin IVA) para coherencia
+          const totalCalculado = holdedItems.reduce((acc, it) => acc + (it.price * it.units), 0);
 
           const holdedBody = {
             docType: 'invoice',
