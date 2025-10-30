@@ -66,20 +66,16 @@ const FacturaDetalle = () => {
           <ArrowLeft className="mr-2 h-4 w-4" />
           Volver
         </Button>
-        {(factura.pdf_url || factura.holded_id) && (
+        {factura.holded_id && (
           <Button
             variant="outline"
             onClick={() => {
-              if (factura.pdf_url) {
-                window.open(factura.pdf_url, "_blank");
-              } else {
-                // Si no hay PDF URL, abrir la sección de facturación de Holded
-                window.open("https://app.holded.com/#/invoicing/invoices", "_blank");
-              }
+              // Abrir la factura específica en Holded usando su ID
+              window.open(`https://app.holded.com/#/invoicing/invoices/${factura.holded_id}`, "_blank");
             }}
           >
             <ExternalLink className="mr-2 h-4 w-4" />
-            {factura.pdf_url ? "Ver PDF" : "Abrir Holded"}
+            Ver en Holded
           </Button>
         )}
       </div>
