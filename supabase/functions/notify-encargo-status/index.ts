@@ -342,14 +342,19 @@ serve(async (req) => {
           // calcular total (sin IVA) para coherencia (euros)
           const totalCalculado = holdedItems.reduce((acc, it) => acc + (it.unitPrice * it.quantity), 0);
 
-          // Items para la petición a Holded (CRÍTICO: unitPrice debe ser entero en céntimos)
-          const requestItems = holdedItems.map((it) => ({
-            name: it.name,
-            quantity: it.quantity,
-            unitPrice: Math.round(it.unitPrice * 100), // Convertir euros a céntimos (entero)
-            tax: it.tax,
-            ...(it.desc ? { desc: it.desc } : {})
-          }));
+          // Items para la petición a Holded (CRÍTICO: enviar AMBOS conjuntos de claves para máxima compatibilidad)
+          const requestItems = holdedItems.map((it) => {
+            const priceInCents = Math.round(it.unitPrice * 100); // Convertir euros a céntimos (entero)
+            return {
+              name: it.name,
+              quantity: it.quantity,
+              units: it.quantity, // Alias por compatibilidad
+              unitPrice: priceInCents,
+              price: priceInCents, // Alias por compatibilidad
+              tax: it.tax,
+              ...(it.desc ? { desc: it.desc } : {})
+            };
+          });
 
           console.log('Items para Holded (céntimos):', JSON.stringify(requestItems, null, 2));
 
@@ -361,6 +366,7 @@ serve(async (req) => {
             holdedErrorMsg = requestItems.length === 0
               ? 'Facturación detenida: sin items válidos para facturar'
               : 'Facturación detenida: items con precio o unidades inválidas tras conversión';
+            console.error('Validación de items falló:', holdedErrorMsg);
             throw new Error(holdedErrorMsg);
           }
 
@@ -388,8 +394,29 @@ serve(async (req) => {
             body: JSON.stringify(holdedBody),
           });
 
+          // Leer respuesta cruda para diagnóstico
+          const holdedResponseText = await holdedResponse.text();
+          console.log('Holded response status:', holdedResponse.status);
+          console.log('Holded raw response body:', holdedResponseText);
+
           if (holdedResponse.ok) {
-            const holdedData = await holdedResponse.json();
+            // Intentar parsear JSON
+            let holdedData;
+            try {
+              holdedData = JSON.parse(holdedResponseText);
+              console.log('Holded response parsed:', holdedData);
+            } catch (parseError) {
+              console.error('Error parsing Holded response as JSON:', parseError);
+              holdedErrorMsg = 'Holded respondió OK pero no se pudo parsear JSON';
+              throw new Error(holdedErrorMsg);
+            }
+
+            if (!holdedData.id) {
+              console.error('Holded response OK pero sin id:', holdedData);
+              holdedErrorMsg = 'Holded respondió OK pero sin id de factura';
+              throw new Error(holdedErrorMsg);
+            }
+
             holdedInvoiceId = holdedData.id;
             console.log('Holded invoice created successfully:', holdedInvoiceId);
             
@@ -415,8 +442,10 @@ serve(async (req) => {
               console.log('Invoice saved to database successfully');
             }
           } else {
-            const errorText = await holdedResponse.text();
-            console.error('Error creating Holded invoice:', holdedResponse.status, errorText);
+            // Error de Holded
+            console.error('Error creating Holded invoice:', holdedResponse.status);
+            console.error('Holded error response:', holdedResponseText);
+            holdedErrorMsg = `Holded error ${holdedResponse.status}: ${holdedResponseText.substring(0, 200)}`;
           }
         } else {
           console.log('Holded API key not configured, skipping invoice creation');
