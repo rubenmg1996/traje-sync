@@ -137,6 +137,11 @@ export const useCreateEncargo = () => {
       });
 
       if (error) {
+        // Si hay datos en la respuesta con error, usar ese mensaje
+        if (data?.error) {
+          const errorMsg = data.detalle ? `${data.error}: ${data.detalle}` : data.error;
+          throw new Error(errorMsg);
+        }
         // Edge functions devuelven error aquí si status >= 400
         throw new Error(error.message || "No se pudo crear el encargo");
       }
