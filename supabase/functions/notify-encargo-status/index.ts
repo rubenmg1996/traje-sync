@@ -115,19 +115,18 @@ serve(async (req) => {
       return `whatsapp:+34${digits}`;
     };
 
-    // Preparar destinatarios: cliente (si existe) + destinatarios administrativos
+    // Preparar destinatarios: SOLO destinatarios administrativos (NO clientes)
     const recipientsSet = new Set<string>();
-    
-    // Añadir cliente si existe teléfono
-    if (clienteTelefono && clienteTelefono.trim()) {
-      recipientsSet.add(normalizePhone(clienteTelefono));
-    }
     
     // Añadir destinatarios administrativos desde settings
     if (settings?.notification_recipients && Array.isArray(settings.notification_recipients)) {
       settings.notification_recipients.forEach((phone: string) => {
         if (phone && phone.trim()) {
-          recipientsSet.add(normalizePhone(phone));
+          // Limpiar cualquier prefijo "whatsapp:" que pudiera venir
+          const cleanPhone = phone.replace(/^whatsapp:\s*/i, '').trim();
+          if (cleanPhone) {
+            recipientsSet.add(normalizePhone(cleanPhone));
+          }
         }
       });
     }
@@ -142,12 +141,12 @@ serve(async (req) => {
       );
     }
 
+    // Mensajes SOLO para administradores
     let message = '';
     const tipoEntregaTexto = tipoEntrega === 'domicilio' ? '🚚 Envío a domicilio' : '📍 Recoger en tienda';
     const fechaEstimada = fechaEntregaEstimada ? `\nFecha estimada: ${new Date(fechaEntregaEstimada).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}` : '';
     
     if (estado === 'pendiente') {
-      // Notificación para el CLIENTE
       let productosTexto = '';
       if (productos && productos.length > 0) {
         productosTexto = '\n\nProductos:\n' + productos.map(p => {
@@ -156,19 +155,19 @@ serve(async (req) => {
         }).join('\n');
       }
       
-      message = `✨ ¡Hola ${clienteNombre}!\n\nGracias por tu encargo ${numeroEncargo}\n\n${tipoEntregaTexto}${fechaEstimada}${direccionEnvio ? `\nDirección: ${direccionEnvio}` : ''}${productosTexto}\n\n💰 Total: €${precioTotal ? precioTotal.toFixed(2) : '0.00'}\n\nTe avisaremos cuando esté listo. ¡Gracias por tu confianza! 🌟`;
+      message = `📋 Nuevo encargo ${numeroEncargo}\n\nCliente: ${clienteNombre}\n${tipoEntregaTexto}${fechaEstimada}${direccionEnvio ? `\nDirección: ${direccionEnvio}` : ''}${productosTexto}\n\n💰 Total: €${precioTotal ? precioTotal.toFixed(2) : '0.00'}`;
     } else if (estado === 'entregado') {
-      message = `🎉 ¡Hola ${clienteNombre}!\n\nTu encargo ${numeroEncargo} ha sido entregado.\n\n¡Gracias por confiar en nosotros! Esperamos verte pronto. 💫`;
+      message = `✅ Encargo ${numeroEncargo} ENTREGADO\n\nCliente: ${clienteNombre}\n\n💰 Total: €${precioTotal ? precioTotal.toFixed(2) : '0.00'}`;
     } else if (estado === 'cancelado') {
-      message = `Hola ${clienteNombre},\n\nTu encargo ${numeroEncargo} ha sido cancelado.\n\nSi tienes alguna duda, no dudes en contactarnos. 📞`;
+      message = `❌ Encargo ${numeroEncargo} CANCELADO\n\nCliente: ${clienteNombre}`;
     } else if (estado === 'listo_recoger') {
       if (tipoEntrega === 'domicilio') {
-        message = `📦 ¡Hola ${clienteNombre}!\n\nTu encargo ${numeroEncargo} está en camino.\n\n🚚 Será entregado en: ${direccionEnvio || 'tu dirección'}\n\n¡Pronto lo tendrás! 🎁`;
+        message = `📦 Encargo ${numeroEncargo} EN CAMINO\n\nCliente: ${clienteNombre}\n🚚 Dirección: ${direccionEnvio || 'No especificada'}`;
       } else {
-        message = `✅ ¡Hola ${clienteNombre}!\n\nTu encargo ${numeroEncargo} está listo para recoger.\n\n📍 Pasa cuando quieras por nuestra tienda.\n\n¡Te esperamos! 😊`;
+        message = `✅ Encargo ${numeroEncargo} LISTO PARA RECOGER\n\nCliente: ${clienteNombre}\n📍 Recoger en tienda`;
       }
     } else {
-      message = `Hola ${clienteNombre},\n\nTu encargo ${numeroEncargo} ha sido actualizado.\n\nEstado: ${estado}\n\nGracias por tu paciencia. 🙏`;
+      message = `📝 Encargo ${numeroEncargo} actualizado\n\nCliente: ${clienteNombre}\nEstado: ${estado}`;
     }
 
     const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Messages.json`;
