@@ -276,20 +276,36 @@ serve(async (req) => {
           let productosFuente: FuenteItem[] = [];
 
           if (encargo?.encargo_productos && encargo.encargo_productos.length > 0) {
-            productosFuente = encargo.encargo_productos.map((ep) => ({
-              nombre: ep.productos?.nombre || 'Producto',
-              cantidad: ep.cantidad,
-              precio_unitario: Number(ep.precio_unitario ?? ep.productos?.precio ?? NaN),
-              observaciones: ep.observaciones || ''
-            }));
+            productosFuente = encargo.encargo_productos.map((ep) => {
+              const cantidad = Number(ep.cantidad);
+              const fromDb = Number(ep.precio_unitario ?? NaN);
+              const fromProd = Number(ep.productos?.precio ?? NaN);
+              const precioSeguro = Number.isFinite(fromDb) && fromDb > 0
+                ? fromDb
+                : (Number.isFinite(fromProd) && fromProd > 0 ? fromProd : NaN);
+              return {
+                nombre: ep.productos?.nombre || 'Producto',
+                cantidad,
+                precio_unitario: precioSeguro,
+                observaciones: ep.observaciones || ''
+              };
+            });
           } else if (productos && productos.length > 0) {
             // Fallback solo si no se pudo cargar el encargo desde BD
-            productosFuente = productos.map((p) => ({
-              nombre: p.productos?.nombre || 'Producto',
-              cantidad: p.cantidad,
-              precio_unitario: Number(p.precio_unitario ?? p.productos?.precio ?? NaN),
-              observaciones: p.observaciones || ''
-            }));
+            productosFuente = productos.map((p) => {
+              const cantidad = Number(p.cantidad);
+              const fromBody = Number(p.precio_unitario ?? NaN);
+              const fromProd = Number(p.productos?.precio ?? NaN);
+              const precioSeguro = Number.isFinite(fromBody) && fromBody > 0
+                ? fromBody
+                : (Number.isFinite(fromProd) && fromProd > 0 ? fromProd : NaN);
+              return {
+                nombre: p.productos?.nombre || 'Producto',
+                cantidad,
+                precio_unitario: precioSeguro,
+                observaciones: p.observaciones || ''
+              };
+            });
           } else {
             console.warn('No hay productos para la factura: ni en BD ni en body');
           }
@@ -336,9 +352,13 @@ serve(async (req) => {
           }));
 
           // Validación final antes de enviar a Holded
-          const invalidAfterMap = requestItems.some((it) => !Number.isFinite(it.price) || it.price <= 0 || !Number.isFinite(it.units) || it.units <= 0);
-          if (invalidAfterMap) {
-            holdedErrorMsg = 'Facturación detenida: items con precio o unidades inválidas tras conversión';
+          const invalidAfterMap = requestItems.some(
+            (it) => !Number.isFinite(it.price) || it.price <= 0 || !Number.isFinite(it.units) || it.units <= 0
+          );
+          if (invalidAfterMap || requestItems.length === 0) {
+            holdedErrorMsg = requestItems.length === 0
+              ? 'Facturación detenida: sin items válidos para facturar'
+              : 'Facturación detenida: items con precio o unidades inválidas tras conversión';
             throw new Error(holdedErrorMsg);
           }
 
