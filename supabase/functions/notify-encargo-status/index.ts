@@ -333,27 +333,29 @@ serve(async (req) => {
 
           const holdedItems = saneProducts.map((item) => ({
             name: item.nombre,
-            units: item.cantidad,
-            price: item.precio_unitario, // Euros (solo para cálculo interno)
+            quantity: item.cantidad,
+            unitPrice: item.precio_unitario, // Euros (para cálculo interno)
             tax: 21 as number, // IVA 21%
             ...(item.observaciones && { desc: item.observaciones })
           }));
 
           // calcular total (sin IVA) para coherencia (euros)
-          const totalCalculado = holdedItems.reduce((acc, it) => acc + (it.price * it.units), 0);
+          const totalCalculado = holdedItems.reduce((acc, it) => acc + (it.unitPrice * it.quantity), 0);
 
-          // Items para la petición a Holded (CRÍTICO: price debe ser entero en céntimos)
+          // Items para la petición a Holded (CRÍTICO: unitPrice debe ser entero en céntimos)
           const requestItems = holdedItems.map((it) => ({
             name: it.name,
-            units: it.units,
-            price: Math.round(it.price * 100), // Convertir euros a céntimos (entero)
+            quantity: it.quantity,
+            unitPrice: Math.round(it.unitPrice * 100), // Convertir euros a céntimos (entero)
             tax: it.tax,
             ...(it.desc ? { desc: it.desc } : {})
           }));
 
+          console.log('Items para Holded (céntimos):', JSON.stringify(requestItems, null, 2));
+
           // Validación final antes de enviar a Holded
           const invalidAfterMap = requestItems.some(
-            (it) => !Number.isFinite(it.price) || it.price <= 0 || !Number.isFinite(it.units) || it.units <= 0
+            (it) => !Number.isFinite(it.unitPrice) || it.unitPrice <= 0 || !Number.isFinite(it.quantity) || it.quantity <= 0
           );
           if (invalidAfterMap || requestItems.length === 0) {
             holdedErrorMsg = requestItems.length === 0
