@@ -77,17 +77,28 @@ const FacturaDetalle = () => {
               try {
                 toast.info("Descargando factura...");
                 
-                // Llamar a la edge function para descargar el PDF
-                const { data, error } = await supabase.functions.invoke('download-invoice-pdf', {
-                  body: { holdedId: factura.holded_id }
-                });
+                // Obtener el token de sesión
+                const { data: { session } } = await supabase.auth.getSession();
+                
+                // Llamar a la edge function directamente con fetch para obtener el blob
+                const response = await fetch(
+                  `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/download-invoice-pdf`,
+                  {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${session?.access_token}`,
+                    },
+                    body: JSON.stringify({ holdedId: factura.holded_id })
+                  }
+                );
 
-                if (error) {
-                  throw error;
+                if (!response.ok) {
+                  throw new Error('Error al descargar la factura');
                 }
 
-                // Crear un blob desde la respuesta
-                const blob = new Blob([data], { type: 'application/pdf' });
+                // Obtener el blob de la respuesta
+                const blob = await response.blob();
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
