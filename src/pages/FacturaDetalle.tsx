@@ -4,8 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useFactura, useUpdateFactura, Factura } from "@/hooks/useFacturas";
+import { useSettings } from "@/hooks/useSettings";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { toast } from "sonner";
 import {
   Select,
   SelectContent,
@@ -25,6 +27,7 @@ const FacturaDetalle = () => {
   const navigate = useNavigate();
   const { data: factura, isLoading } = useFactura(id!);
   const updateFactura = useUpdateFactura();
+  const { settings } = useSettings();
 
   const handleEstadoChange = (newEstado: Factura["estado"]) => {
     if (factura && id) {
@@ -69,14 +72,44 @@ const FacturaDetalle = () => {
         {factura.holded_id && (
           <Button
             variant="outline"
-            onClick={() => {
-              // Abrir la sección de facturas de Holded
-              // (no existe URL directa para facturas específicas en el dashboard web)
-              window.open("https://app.holded.com/invoicing", "_blank");
+            onClick={async () => {
+              if (!settings?.holded_api_key) {
+                toast.error("API Key de Holded no configurada");
+                return;
+              }
+
+              try {
+                // Descargar el PDF directamente desde Holded API
+                const response = await fetch(`https://api.holded.com/api/invoicing/v1/documents/invoice/${factura.holded_id}/pdf`, {
+                  headers: {
+                    'Key': settings.holded_api_key
+                  }
+                });
+                
+                if (response.ok) {
+                  const blob = await response.blob();
+                  const url = window.URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `factura-${factura.numero_documento}.pdf`;
+                  document.body.appendChild(a);
+                  a.click();
+                  window.URL.revokeObjectURL(url);
+                  document.body.removeChild(a);
+                  toast.success("Factura descargada correctamente");
+                } else {
+                  toast.error("Error al descargar la factura");
+                  window.open("https://app.holded.com/invoicing", "_blank");
+                }
+              } catch (error) {
+                console.error('Error descargando PDF:', error);
+                toast.error("Error al descargar la factura");
+                window.open("https://app.holded.com/invoicing", "_blank");
+              }
             }}
           >
             <ExternalLink className="mr-2 h-4 w-4" />
-            Ver en Holded
+            Descargar Factura
           </Button>
         )}
       </div>

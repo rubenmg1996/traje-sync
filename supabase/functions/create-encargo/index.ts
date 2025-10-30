@@ -167,7 +167,7 @@ export async function handler(req: Request): Promise<Response> {
           clienteTelefono: newEncargo.cliente_telefono,
           clienteEmail: newEncargo.cliente_email,
           numeroEncargo: newEncargo.numero_encargo,
-          estado: "pendiente",
+          estado: newEncargo.estado, // Usar el estado real del encargo
           precioTotal: newEncargo.precio_total,
           productos: productosParaNotif,
           notas: newEncargo.notas,
