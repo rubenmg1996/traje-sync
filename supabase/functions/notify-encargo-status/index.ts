@@ -214,7 +214,8 @@ serve(async (req) => {
     }
 
     // Crear factura en Holded si el estado es "entregado"
-    let holdedInvoiceId = null;
+    let holdedInvoiceId: string | null = null;
+    let holdedErrorMsg: string | null = null;
     if (estado === 'entregado' && encargoId) {
       try {
         const holdedApiKey = Deno.env.get('HOLDED_API_KEY');
@@ -278,7 +279,7 @@ serve(async (req) => {
             productosFuente = encargo.encargo_productos.map((ep) => ({
               nombre: ep.productos?.nombre || 'Producto',
               cantidad: ep.cantidad,
-              precio_unitario: (ep.precio_unitario ?? ep.productos?.precio ?? 0) as number,
+              precio_unitario: Number(ep.precio_unitario ?? ep.productos?.precio ?? NaN),
               observaciones: ep.observaciones || ''
             }));
           } else if (productos && productos.length > 0) {
@@ -286,27 +287,41 @@ serve(async (req) => {
             productosFuente = productos.map((p) => ({
               nombre: p.productos?.nombre || 'Producto',
               cantidad: p.cantidad,
-              precio_unitario: (p.precio_unitario ?? p.productos?.precio ?? 0) as number,
+              precio_unitario: Number(p.precio_unitario ?? p.productos?.precio ?? NaN),
               observaciones: p.observaciones || ''
             }));
           } else {
             console.warn('No hay productos para la factura: ni en BD ni en body');
           }
 
-          // 3) Mapear a items de Holded
+          // 3) Validar y mapear productos a items para Holded
           // En Holded, algunos entornos esperan precios en CÉNTIMOS y campos "quantity"/"unitPrice".
-          // Para máxima compatibilidad: calculamos en euros para totales internos y enviamos a Holded en céntimos
-          // incluyendo ambos alias de campos (units/quantity y price/unitPrice).
-          const holdedItems = productosFuente.map((item) => {
-            const precioUnitario = parseFloat((item.precio_unitario || 0).toString());
-            return {
-              name: item.nombre,
-              units: item.cantidad,
-              price: precioUnitario, // Euros (solo para cálculo interno)
-              tax: 21 as number, // IVA 21%
-              ...(item.observaciones && { desc: item.observaciones })
-            } as { name: string; units: number; price: number; tax: number; desc?: string };
+          // Calculamos en euros para totales internos y enviamos a Holded en céntimos.
+          const invalids: string[] = [];
+          const saneProducts = productosFuente.map((item, idx) => {
+            const units = Number(item.cantidad);
+            const unitPrice = Number(item.precio_unitario);
+            if (!Number.isFinite(units) || units <= 0) {
+              invalids.push(`Línea ${idx + 1}: cantidad inválida (${item.cantidad})`);
+            }
+            if (!Number.isFinite(unitPrice) || unitPrice <= 0) {
+              invalids.push(`Línea ${idx + 1}: precio inválido (${item.precio_unitario})`);
+            }
+            return { ...item, cantidad: units, precio_unitario: unitPrice };
           });
+
+          if (invalids.length) {
+            holdedErrorMsg = `Facturación detenida: ${invalids.join('; ')}`;
+            throw new Error(holdedErrorMsg);
+          }
+
+          const holdedItems = saneProducts.map((item) => ({
+            name: item.nombre,
+            units: item.cantidad,
+            price: item.precio_unitario, // Euros (solo para cálculo interno)
+            tax: 21 as number, // IVA 21%
+            ...(item.observaciones && { desc: item.observaciones })
+          }));
 
           // calcular total (sin IVA) para coherencia (euros)
           const totalCalculado = holdedItems.reduce((acc, it) => acc + (it.price * it.units), 0);
@@ -319,6 +334,13 @@ serve(async (req) => {
             tax: it.tax,
             ...(it.desc ? { desc: it.desc } : {})
           }));
+
+          // Validación final antes de enviar a Holded
+          const invalidAfterMap = requestItems.some((it) => !Number.isFinite(it.price) || it.price <= 0 || !Number.isFinite(it.units) || it.units <= 0);
+          if (invalidAfterMap) {
+            holdedErrorMsg = 'Facturación detenida: items con precio o unidades inválidas tras conversión';
+            throw new Error(holdedErrorMsg);
+          }
 
           const holdedBody = {
             docType: 'invoice',
@@ -378,6 +400,7 @@ serve(async (req) => {
           console.log('Holded API key not configured, skipping invoice creation');
         }
       } catch (holdedError) {
+        holdedErrorMsg = holdedError instanceof Error ? holdedError.message : String(holdedError);
         console.error('Error with Holded integration:', holdedError);
       }
     }
@@ -387,7 +410,8 @@ serve(async (req) => {
         success: true, 
         messageSids,
         sentTo: recipients,
-        holdedInvoiceId: holdedInvoiceId 
+        holdedInvoiceId,
+        holdedErrorMsg
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
