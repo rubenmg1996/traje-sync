@@ -342,31 +342,38 @@ serve(async (req) => {
           // calcular total (sin IVA) para coherencia (euros)
           const totalCalculado = holdedItems.reduce((acc, it) => acc + (it.unitPrice * it.quantity), 0);
 
-          // Items para la petición a Holded (CRÍTICO: enviar AMBOS conjuntos de claves para máxima compatibilidad)
+          // Items para la petición a Holded (CRÍTICO: enviar AMBOS formatos - decimales en EUROS y enteros en CÉNTIMOS)
           const requestItems = holdedItems.map((it) => {
-            const priceInCents = Math.round(it.unitPrice * 100); // Convertir euros a céntimos (entero)
+            const unitPriceEuros = Number(it.unitPrice); // Precio unitario en EUROS (decimal)
+            const quantityInt = Math.floor(it.quantity); // Cantidad como entero
+            const subtotalEuros = unitPriceEuros * quantityInt; // Subtotal en EUROS
+            const unitPriceCents = Math.round(unitPriceEuros * 100); // Precio en CÉNTIMOS (entero)
+            
             return {
               name: it.name,
-              quantity: it.quantity,
-              units: it.quantity, // Alias por compatibilidad
-              unitPrice: priceInCents,
-              price: priceInCents, // Alias por compatibilidad
+              quantity: quantityInt,
+              units: quantityInt,
+              unitPrice: unitPriceEuros, // EUROS (decimal)
+              price: unitPriceEuros, // EUROS (decimal)
+              subtotal: subtotalEuros, // EUROS (decimal)
+              unitPriceCents: unitPriceCents, // CÉNTIMOS (entero) - campo extra
+              priceCents: unitPriceCents, // CÉNTIMOS (entero) - campo extra
               tax: it.tax,
               ...(it.desc ? { desc: it.desc } : {})
             };
           });
 
-          console.log('Items para Holded (céntimos):', JSON.stringify(requestItems, null, 2));
+          console.log('Items para Holded (formato dual euros/céntimos):', JSON.stringify(requestItems, null, 2));
 
-          // Validación final antes de enviar a Holded
+          // Validación final antes de enviar a Holded (verificar formato en EUROS)
           const invalidAfterMap = requestItems.some(
             (it) => !Number.isFinite(it.unitPrice) || it.unitPrice <= 0 || !Number.isFinite(it.quantity) || it.quantity <= 0
           );
           if (invalidAfterMap || requestItems.length === 0) {
             holdedErrorMsg = requestItems.length === 0
               ? 'Facturación detenida: sin items válidos para facturar'
-              : 'Facturación detenida: items con precio o unidades inválidas tras conversión';
-            console.error('Validación de items falló:', holdedErrorMsg);
+              : 'Facturación detenida: items con precio (euros) o unidades inválidas';
+            console.error('Validación de items falló:', holdedErrorMsg, 'Items:', requestItems);
             throw new Error(holdedErrorMsg);
           }
 
