@@ -142,6 +142,25 @@ export async function handler(req: Request): Promise<Response> {
 
     // 5) Notify via WhatsApp (reuse existing function)
     try {
+      // Obtener info completa de productos para la notificación
+      const { data: productosCompletos } = await supabaseAdmin
+        .from("productos")
+        .select("id, nombre, precio")
+        .in("id", productos.map(p => p.producto_id));
+
+      const productosParaNotif = productos.map(p => {
+        const prod = productosCompletos?.find(pc => pc.id === p.producto_id);
+        return {
+          cantidad: p.cantidad,
+          precio_unitario: p.precio_unitario,
+          observaciones: p.observaciones,
+          productos: prod ? {
+            nombre: prod.nombre,
+            precio: prod.precio
+          } : null
+        };
+      });
+
       await supabaseAdmin.functions.invoke("notify-encargo-status", {
         body: {
           clienteNombre: newEncargo.cliente_nombre,
@@ -150,12 +169,13 @@ export async function handler(req: Request): Promise<Response> {
           numeroEncargo: newEncargo.numero_encargo,
           estado: "pendiente",
           precioTotal: newEncargo.precio_total,
-          productos,
+          productos: productosParaNotif,
           notas: newEncargo.notas,
           fechaCreacion: newEncargo.fecha_creacion,
           tipoEntrega: newEncargo.tipo_entrega,
           direccionEnvio: newEncargo.direccion_envio,
           fechaEntregaEstimada: newEncargo.fecha_entrega_estimada,
+          encargoId: newEncargo.id,
         },
       });
     } catch (notifError) {
