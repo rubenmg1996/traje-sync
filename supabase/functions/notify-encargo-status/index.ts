@@ -311,11 +311,11 @@ serve(async (req) => {
           // calcular total (sin IVA) para coherencia (euros)
           const totalCalculado = holdedItems.reduce((acc, it) => acc + (it.price * it.units), 0);
 
-          // Items para la petición a Holded (en euros decimales + solo quantity/unitPrice)
+          // Items para la petición a Holded (en euros decimales, usando campos price + units)
           const requestItems = holdedItems.map((it) => ({
             name: it.name,
-            quantity: it.units,
-            unitPrice: Number((it.price).toFixed(2)),
+            units: it.units,
+            price: Number((it.price).toFixed(2)),
             tax: it.tax,
             ...(it.desc ? { desc: it.desc } : {})
           }));
