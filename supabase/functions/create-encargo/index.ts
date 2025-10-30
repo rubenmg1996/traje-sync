@@ -120,23 +120,26 @@ export async function handler(req: Request): Promise<Response> {
 
       if (productosError) throw productosError;
 
-      // 4) Update stock for each product
-      for (const p of productos) {
-        const { data: prodActual, error: fetchError } = await supabaseAdmin
-          .from("productos")
-          .select("stock_actual")
-          .eq("id", p.producto_id)
-          .single();
+      // 4) Update stock SOLO si el encargo está en estado 'entregado'
+      // Para otros estados, el trigger lo manejará cuando cambie a 'entregado'
+      if (newEncargo.estado === 'entregado') {
+        for (const p of productos) {
+          const { data: prodActual, error: fetchError } = await supabaseAdmin
+            .from("productos")
+            .select("stock_actual")
+            .eq("id", p.producto_id)
+            .single();
 
-        if (fetchError) throw fetchError;
+          if (fetchError) throw fetchError;
 
-        const nuevoStock = (prodActual?.stock_actual ?? 0) - p.cantidad;
-        const { error: updError } = await supabaseAdmin
-          .from("productos")
-          .update({ stock_actual: nuevoStock })
-          .eq("id", p.producto_id);
+          const nuevoStock = (prodActual?.stock_actual ?? 0) - p.cantidad;
+          const { error: updError } = await supabaseAdmin
+            .from("productos")
+            .update({ stock_actual: nuevoStock })
+            .eq("id", p.producto_id);
 
-        if (updError) throw updError;
+          if (updError) throw updError;
+        }
       }
     }
 
