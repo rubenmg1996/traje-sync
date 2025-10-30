@@ -70,8 +70,9 @@ const FacturaDetalle = () => {
           <Button
             variant="outline"
             onClick={() => {
-              // Abrir la factura específica en Holded usando su ID
-              window.open(`https://app.holded.com/#/invoicing/invoices/${factura.holded_id}`, "_blank");
+              // Abrir la sección de facturas de Holded
+              // (no existe URL directa para facturas específicas en el dashboard web)
+              window.open("https://app.holded.com/invoicing", "_blank");
             }}
           >
             <ExternalLink className="mr-2 h-4 w-4" />

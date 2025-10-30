@@ -461,7 +461,7 @@ const Configuracion = () => {
             <p className="font-medium mb-1">¿Cómo obtener la API Key?</p>
             <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
               <li>Accede a tu cuenta de Holded</li>
-              <li>Ve a Configuración → Integraciones → API</li>
+              <li>Ve a Configuración → Más → Desarrolladores</li>
               <li>Genera una nueva API Key y cópiala aquí</li>
             </ol>
           </div>
