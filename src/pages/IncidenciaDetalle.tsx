@@ -274,7 +274,7 @@ const IncidenciaDetalle = () => {
                 rows={3}
               />
               <Button onClick={handleAddComentario} className="w-full">
-                Añadir Comentario
+                Actualizar incidencia
               </Button>
             </div>
           </CardContent>
