@@ -80,37 +80,55 @@ const FacturaDetalle = () => {
                 // Obtener el token de sesión
                 const { data: { session } } = await supabase.auth.getSession();
                 
-                // Llamar a la edge function directamente con fetch para obtener el blob
-                const response = await fetch(
-                  `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/download-invoice-pdf`,
-                  {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'Authorization': `Bearer ${session?.access_token}`,
-                    },
-                    body: JSON.stringify({ holdedId: factura.holded_id })
-                  }
-                );
+                const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/download-invoice-pdf`;
+                const response = await fetch(functionUrl, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session?.access_token ?? ''}`,
+                    'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                  },
+                  body: JSON.stringify({ holdedId: factura.holded_id })
+                });
 
                 if (!response.ok) {
-                  throw new Error('Error al descargar la factura');
+                  // Intentar leer el error como JSON para mostrar detalle útil
+                  let msg = 'Error al descargar la factura';
+                  const ct = response.headers.get('content-type') || '';
+                  if (ct.includes('application/json')) {
+                    const json = await response.json().catch(() => null);
+                    if (json?.error) msg = `${msg}: ${json.error}`;
+                    if (json?.details || json?.detalle) msg += ` - ${json.details || json.detalle}`;
+                  }
+                  throw new Error(msg);
                 }
 
-                // Obtener el blob de la respuesta
+                const ct = response.headers.get('content-type') || '';
+                if (!ct.includes('application/pdf')) {
+                  throw new Error('Respuesta inesperada: no es un PDF');
+                }
+
+                // Obtener el blob de la respuesta y abrir en nueva pestaña
                 const blob = await response.blob();
                 const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `factura-${factura.numero_documento}.pdf`;
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(url);
-                document.body.removeChild(a);
-                toast.success("Factura descargada correctamente");
-              } catch (error) {
+                const opened = window.open(url, '_blank', 'noopener,noreferrer');
+
+                // Fallback a descarga si el navegador bloquea popups
+                if (!opened) {
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `factura-${factura.numero_documento}.pdf`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                }
+
+                // Revocar URL tras un tiempo para no cortar la carga del visor
+                setTimeout(() => URL.revokeObjectURL(url), 60_000);
+                toast.success("Factura lista");
+              } catch (error: any) {
                 console.error('Error descargando PDF:', error);
-                toast.error("Error al descargar la factura");
+                toast.error(error?.message || "Error al descargar la factura");
               }
             }}
           >
