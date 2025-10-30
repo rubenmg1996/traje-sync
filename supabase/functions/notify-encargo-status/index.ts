@@ -285,20 +285,35 @@ serve(async (req) => {
               }));
 
           // 3) Mapear a items de Holded
-          // IMPORTANTE: Holded espera el precio como número (puede ser decimal) en EUROS
+          // En Holded, algunos entornos esperan precios en CÉNTIMOS y campos "quantity"/"unitPrice".
+          // Para máxima compatibilidad: calculamos en euros para totales internos y enviamos a Holded en céntimos
+          // incluyendo ambos alias de campos (units/quantity y price/unitPrice).
           const holdedItems = productosFuente.map((item) => {
             const precioUnitario = parseFloat((item.precio_unitario || 0).toString());
             return {
               name: item.nombre,
               units: item.cantidad,
-              price: precioUnitario, // Precio unitario en euros (número decimal)
-              tax: 21, // IVA 21%
+              price: precioUnitario, // Euros (solo para cálculo interno)
+              tax: 21 as number, // IVA 21%
               ...(item.observaciones && { desc: item.observaciones })
-            };
+            } as { name: string; units: number; price: number; tax: number; desc?: string };
           });
 
-          // calcular total (sin IVA) para coherencia
+          // calcular total (sin IVA) para coherencia (euros)
           const totalCalculado = holdedItems.reduce((acc, it) => acc + (it.price * it.units), 0);
+
+          // Items para la petición a Holded (en céntimos + alias de campos)
+          const requestItems = holdedItems.map((it) => ({
+            name: it.name,
+            // Enviar ambos por compatibilidad
+            units: it.units,
+            quantity: it.units,
+            // Precio en céntimos como entero (requerido por Holded en algunos entornos)
+            price: Math.round(it.price * 100),
+            unitPrice: Math.round(it.price * 100),
+            tax: it.tax,
+            ...(it.desc ? { desc: it.desc } : {})
+          }));
 
           const holdedBody = {
             docType: 'invoice',
@@ -306,7 +321,8 @@ serve(async (req) => {
             contactEmail: emailCliente,
             contactPhone: telCliente,
             date: Math.floor(new Date(fecha).getTime() / 1000),
-            items: holdedItems,
+            currency: 'EUR',
+            items: requestItems,
             notes: notasDoc,
             invoiceNum: String(numero),
             approveDoc: true,
