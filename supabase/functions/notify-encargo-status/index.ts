@@ -213,10 +213,10 @@ serve(async (req) => {
       );
     }
 
-    // Crear factura en Holded si el estado es "entregado"
+    // Crear factura en Holded si el estado es "entregado" o "listo_recoger"
     let holdedInvoiceId: string | null = null;
     let holdedErrorMsg: string | null = null;
-    if (estado === 'entregado' && encargoId) {
+    if ((estado === 'entregado' || estado === 'listo_recoger') && encargoId) {
       try {
         const holdedApiKey = settings?.holded_api_key || Deno.env.get('HOLDED_API_KEY');
         
