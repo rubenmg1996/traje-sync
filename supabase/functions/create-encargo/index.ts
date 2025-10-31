@@ -126,19 +126,41 @@ export async function handler(req: Request): Promise<Response> {
         for (const p of productos) {
           const { data: prodActual, error: fetchError } = await supabaseAdmin
             .from("productos")
-            .select("stock_actual")
+            .select("stock_actual, stock_minimo, nombre")
             .eq("id", p.producto_id)
             .single();
 
           if (fetchError) throw fetchError;
 
-          const nuevoStock = (prodActual?.stock_actual ?? 0) - p.cantidad;
+          const stockAnterior = prodActual?.stock_actual ?? 0;
+          const stockMinimo = prodActual?.stock_minimo ?? 5;
+          const nuevoStock = stockAnterior - p.cantidad;
+
           const { error: updError } = await supabaseAdmin
             .from("productos")
             .update({ stock_actual: nuevoStock })
             .eq("id", p.producto_id);
 
           if (updError) throw updError;
+
+          // Verificar si el stock ha bajado del mínimo
+          if (stockAnterior >= stockMinimo && nuevoStock < stockMinimo) {
+            console.log(`Stock bajo detectado: ${prodActual?.nombre} - Anterior: ${stockAnterior}, Nuevo: ${nuevoStock}, Mínimo: ${stockMinimo}`);
+            try {
+              await supabaseAdmin.functions.invoke("notify-low-stock-whatsapp", {
+                body: {
+                  producto_id: p.producto_id,
+                  nombre: prodActual?.nombre,
+                  stock_actual: nuevoStock,
+                  stock_minimo: stockMinimo,
+                },
+              });
+              console.log(`Notificación de stock bajo enviada para: ${prodActual?.nombre}`);
+            } catch (notifError) {
+              console.error(`Error enviando notificación de stock bajo para ${prodActual?.nombre}:`, notifError);
+              // Non-blocking
+            }
+          }
         }
       }
     }

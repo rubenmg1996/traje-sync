@@ -213,6 +213,78 @@ serve(async (req) => {
       );
     }
 
+    // Actualizar stock y notificar si baja del mínimo cuando estado es "entregado"
+    if (estado === 'entregado' && encargoId) {
+      try {
+        console.log('Actualizando stock y verificando stock bajo para encargo:', encargoId);
+        
+        // Obtener productos del encargo
+        const { data: encargoProductos, error: epError } = await supabaseAdmin
+          .from('encargo_productos')
+          .select('producto_id, cantidad')
+          .eq('encargo_id', encargoId);
+
+        if (epError) {
+          console.error('Error obteniendo productos del encargo:', epError);
+        } else if (encargoProductos && encargoProductos.length > 0) {
+          console.log('Productos a actualizar:', encargoProductos.length);
+
+          for (const ep of encargoProductos) {
+            // Obtener stock actual y mínimo del producto
+            const { data: producto, error: prodError } = await supabaseAdmin
+              .from('productos')
+              .select('id, nombre, stock_actual, stock_minimo')
+              .eq('id', ep.producto_id)
+              .single();
+
+            if (prodError) {
+              console.error('Error obteniendo producto:', prodError);
+              continue;
+            }
+
+            const stockAnterior = producto.stock_actual ?? 0;
+            const stockMinimo = producto.stock_minimo ?? 5;
+            const nuevoStock = stockAnterior - ep.cantidad;
+
+            console.log(`Producto ${producto.nombre}: Stock anterior=${stockAnterior}, Nuevo=${nuevoStock}, Mínimo=${stockMinimo}`);
+
+            // Actualizar stock
+            const { error: updateError } = await supabaseAdmin
+              .from('productos')
+              .update({ stock_actual: nuevoStock })
+              .eq('id', ep.producto_id);
+
+            if (updateError) {
+              console.error('Error actualizando stock:', updateError);
+              continue;
+            }
+
+            // Verificar si bajó del stock mínimo
+            if (stockAnterior >= stockMinimo && nuevoStock < stockMinimo) {
+              console.log(`Stock bajo detectado para ${producto.nombre} - notificando...`);
+              try {
+                await supabaseAdmin.functions.invoke('notify-low-stock-whatsapp', {
+                  body: {
+                    producto_id: producto.id,
+                    nombre: producto.nombre,
+                    stock_actual: nuevoStock,
+                    stock_minimo: stockMinimo,
+                  },
+                });
+                console.log(`Notificación de stock bajo enviada para: ${producto.nombre}`);
+              } catch (notifError) {
+                console.error(`Error enviando notificación de stock bajo:`, notifError);
+                // Non-blocking
+              }
+            }
+          }
+        }
+      } catch (stockError) {
+        console.error('Error en actualización de stock:', stockError);
+        // Non-blocking, continuamos con la facturación
+      }
+    }
+
     // Crear factura en Holded si el estado es "entregado" o "listo_recoger"
     let holdedInvoiceId: string | null = null;
     let holdedErrorMsg: string | null = null;
