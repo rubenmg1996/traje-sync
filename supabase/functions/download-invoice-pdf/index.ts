@@ -87,58 +87,121 @@ serve(async (req) => {
         );
       }
 
-      // Validar cabeceras y tamaño mínimo
+      // Validar cabeceras y leer contenido
       const contentType = response.headers.get('content-type') || '';
       const contentLength = Number(response.headers.get('content-length') || '0');
       lastContentType = contentType;
 
       console.log(`Intento ${attempt}/${maxAttempts} - Content-Type: ${contentType}, Size: ${contentLength} bytes`);
 
-      // CRÍTICO: Si no es PDF válido, NO descargar
-      if (!contentType.includes('application/pdf') && !contentType.includes('pdf')) {
-        // Capturar el HTML para ver qué está devolviendo Holded
-        const htmlText = await response.text();
-        lastHtmlPreview = htmlText.substring(0, 300);
-        console.warn(`Intento ${attempt}/${maxAttempts} - Respuesta no es PDF (type=${contentType})`);
-        console.warn(`HTML recibido (primeros 300 chars): ${lastHtmlPreview}`);
-        
-        if (attempt < maxAttempts) {
-          await wait(3000 * attempt); // Espera progresiva más larga (3s, 6s, 9s...)
-          continue;
+      // Leer el contenido de la respuesta
+      const responseText = await response.text();
+      
+      // CASO 1: Holded puede devolver JSON con base64 {"status":1,"data":"<BASE64>"}
+      if (contentType.includes('text/html') || contentType.includes('application/json') || responseText.trim().startsWith('{')) {
+        try {
+          const jsonResponse = JSON.parse(responseText);
+          
+          // Si tiene el campo "data" con base64, decodificarlo
+          if (jsonResponse.status === 1 && jsonResponse.data) {
+            console.log(`Intento ${attempt}/${maxAttempts} - Holded devolvió JSON con PDF en base64`);
+            
+            // Decodificar base64 a bytes
+            const base64Data = jsonResponse.data;
+            const binaryString = atob(base64Data);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+              bytes[i] = binaryString.charCodeAt(i);
+            }
+            
+            // Verificar que sea un PDF válido (debe empezar con %PDF)
+            const pdfHeader = new TextDecoder().decode(bytes.slice(0, 4));
+            if (!pdfHeader.startsWith('%PDF')) {
+              console.warn(`Intento ${attempt}/${maxAttempts} - Base64 decodificado no es PDF (header: ${pdfHeader})`);
+              if (attempt < maxAttempts) {
+                await wait(3000 * attempt);
+                continue;
+              }
+              throw new Error('Base64 decodificado no es un PDF válido');
+            }
+            
+            console.log(`PDF decodificado exitosamente: ${bytes.length} bytes, header: ${pdfHeader}`);
+            
+            return new Response(bytes, {
+              headers: {
+                ...corsHeaders,
+                'Content-Type': 'application/pdf',
+                'Content-Disposition': `attachment; filename="factura-${holdedId}.pdf"`,
+              },
+            });
+          }
+          
+          // Si es JSON pero sin data, puede que el PDF no esté listo
+          console.warn(`Intento ${attempt}/${maxAttempts} - Respuesta JSON sin PDF: ${responseText.substring(0, 200)}`);
+          lastHtmlPreview = responseText.substring(0, 300);
+          
+          if (attempt < maxAttempts) {
+            await wait(3000 * attempt);
+            continue;
+          }
+        } catch (parseError) {
+          console.warn(`Intento ${attempt}/${maxAttempts} - No se pudo parsear JSON: ${parseError}`);
+          lastHtmlPreview = responseText.substring(0, 300);
+          
+          if (attempt < maxAttempts) {
+            await wait(3000 * attempt);
+            continue;
+          }
         }
-        // ÚLTIMO INTENTO: Si sigue sin ser PDF, devolver error
+        
+        // ÚLTIMO INTENTO: Si sigue sin ser PDF válido
         console.error('Error final: Holded no devolvió un PDF válido después de todos los intentos');
-        console.error('Último HTML recibido:', lastHtmlPreview);
+        console.error('Última respuesta:', responseText.substring(0, 500));
         return new Response(
           JSON.stringify({ 
             error: 'Holded no devolvió un PDF válido. El documento puede no estar completamente procesado.', 
             details: `Content-Type recibido: ${contentType}`,
-            htmlPreview: lastHtmlPreview,
+            responsePreview: responseText.substring(0, 300),
             suggestion: 'El PDF puede tardar varios minutos en generarse en Holded. Espera un momento e intenta nuevamente.'
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 502 }
         );
       }
-
-      if (contentLength < 1000) {
-        console.warn(`Intento ${attempt}/${maxAttempts} - PDF muy pequeño (${contentLength} bytes), puede estar incompleto`);
-        if (attempt < maxAttempts) {
-          await wait(3000 * attempt);
-          continue;
+      
+      // CASO 2: Respuesta directa como application/pdf
+      if (contentType.includes('application/pdf') || contentType.includes('pdf')) {
+        // Convertir el texto de vuelta a bytes
+        const encoder = new TextEncoder();
+        const pdfBytes = encoder.encode(responseText);
+        
+        // Verificar tamaño mínimo
+        if (pdfBytes.length < 1000) {
+          console.warn(`Intento ${attempt}/${maxAttempts} - PDF muy pequeño (${pdfBytes.length} bytes), puede estar incompleto`);
+          if (attempt < maxAttempts) {
+            await wait(3000 * attempt);
+            continue;
+          }
         }
+        
+        console.log(`PDF descargado exitosamente: ${pdfBytes.length} bytes`);
+        
+        return new Response(pdfBytes, {
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/pdf',
+            'Content-Disposition': `attachment; filename="factura-${holdedId}.pdf"`,
+          },
+        });
       }
-
-      // Todo OK, descargar el PDF
-      const pdfBlob = await response.blob();
-      console.log(`PDF descargado exitosamente: ${contentLength} bytes`);
-
-      return new Response(pdfBlob, {
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/pdf',
-          'Content-Disposition': `attachment; filename="factura-${holdedId}.pdf"`,
-        },
-      });
+      
+      // Si no es ninguno de los casos anteriores, reintentar
+      console.warn(`Intento ${attempt}/${maxAttempts} - Formato de respuesta no reconocido`);
+      lastHtmlPreview = responseText.substring(0, 300);
+      
+      if (attempt < maxAttempts) {
+        await wait(3000 * attempt);
+        continue;
+      }
     }
 
     // Si llegó aquí, no se pudo obtener el PDF válido después de todos los intentos

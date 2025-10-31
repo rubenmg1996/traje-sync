@@ -390,7 +390,11 @@ serve(async (req) => {
             approveDoc: true,
           } as Record<string, unknown>;
 
-          console.log('Holded request body:', JSON.stringify(holdedBody, null, 2));
+          console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          console.log('📤 HOLDED REQUEST - Encargo:', encargoId);
+          console.log('Request Headers:', { 'Content-Type': 'application/json', 'Key': '***' });
+          console.log('Request Body:', JSON.stringify(holdedBody, null, 2));
+          console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
           const holdedResponse = await fetch('https://api.holded.com/api/invoicing/v1/documents/invoice', {
             method: 'POST',
@@ -403,8 +407,17 @@ serve(async (req) => {
 
           // Leer respuesta cruda para diagnóstico
           const holdedResponseText = await holdedResponse.text();
-          console.log('Holded response status:', holdedResponse.status);
-          console.log('Holded raw response body:', holdedResponseText);
+          const holdedResponseHeaders: Record<string, string> = {};
+          holdedResponse.headers.forEach((value, key) => {
+            holdedResponseHeaders[key] = value;
+          });
+          
+          console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          console.log('📥 HOLDED RESPONSE');
+          console.log('Response Status:', holdedResponse.status);
+          console.log('Response Headers:', JSON.stringify(holdedResponseHeaders, null, 2));
+          console.log('Response Body:', holdedResponseText);
+          console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
           if (holdedResponse.ok) {
             // Intentar parsear JSON
