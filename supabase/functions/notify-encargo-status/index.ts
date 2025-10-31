@@ -440,8 +440,14 @@ serve(async (req) => {
             holdedInvoiceId = holdedData.id;
             console.log('Holded invoice created successfully:', holdedInvoiceId);
             
+            // Determinar el estado de la factura según el estado del encargo
+            // - entregado: factura pagada
+            // - listo_recoger: factura emitida
+            const estadoFactura = estado === 'entregado' ? 'pagada' : 'emitida';
+            console.log(`Setting invoice status to: ${estadoFactura} (encargo estado: ${estado})`);
+            
             // Guardar factura en la base de datos usando el mismo cliente admin
-            const { error: insertError } = await supabaseAdmin
+            const { data: facturaInsertada, error: insertError } = await supabaseAdmin
               .from('facturas')
               .insert({
                 holded_id: holdedData.id,
@@ -452,14 +458,48 @@ serve(async (req) => {
                 correo_cliente: emailCliente,
                 telefono_cliente: telCliente,
                 total: totalEsperado || totalCalculado || 0,
-                estado: 'emitida',
+                estado: estadoFactura,
                 pdf_url: holdedData.pdfUrl,
-              });
+              })
+              .select()
+              .single();
 
             if (insertError) {
               console.error('Error saving invoice to database:', insertError);
             } else {
-              console.log('Invoice saved to database successfully');
+              console.log('Invoice saved to database successfully with status:', estadoFactura);
+              
+              // Si el estado es "pagada", marcar la factura como pagada en Holded también
+              if (estadoFactura === 'pagada' && facturaInsertada) {
+                try {
+                  console.log('Marking invoice as paid in Holded...');
+                  const paymentDate = Math.floor(Date.now() / 1000);
+                  const payResponse = await fetch(
+                    `https://api.holded.com/api/invoicing/v1/documents/invoice/${holdedData.id}/pay`,
+                    {
+                      method: 'POST',
+                      headers: {
+                        'Key': holdedApiKey,
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({
+                        amount: totalEsperado || totalCalculado || 0,
+                        date: paymentDate,
+                        paymentMethod: 'other'
+                      })
+                    }
+                  );
+                  
+                  if (payResponse.ok) {
+                    console.log('Invoice marked as paid in Holded successfully');
+                  } else {
+                    const payError = await payResponse.text();
+                    console.error('Error marking invoice as paid in Holded:', payError);
+                  }
+                } catch (payError) {
+                  console.error('Exception marking invoice as paid in Holded:', payError);
+                }
+              }
             }
           } else {
             // Error de Holded
