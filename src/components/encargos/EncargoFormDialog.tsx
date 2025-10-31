@@ -199,7 +199,7 @@ const EncargoFormDialog = ({ encargo, open, onOpenChange }: EncargoFormDialogPro
                   <FormItem>
                     <FormLabel>Teléfono</FormLabel>
                     <FormControl>
-                      <Input placeholder="Ej: 676138583" {...field} />
+                      <Input placeholder="Ej: 666666666" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
