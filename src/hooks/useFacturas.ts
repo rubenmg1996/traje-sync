@@ -66,6 +66,7 @@ export const useUpdateFactura = () => {
 
   return useMutation({
     mutationFn: async ({ id, factura }: { id: string; factura: Partial<Factura> }) => {
+      // Actualizar en base de datos local
       const { data, error } = await supabase
         .from("facturas")
         .update(factura)
@@ -74,6 +75,35 @@ export const useUpdateFactura = () => {
         .maybeSingle();
 
       if (error) throw error;
+
+      // Si se está actualizando el estado, sincronizar con Holded
+      if (factura.estado && data) {
+        try {
+          console.log('Sincronizando estado con Holded:', { id, estado: factura.estado });
+          const syncResponse = await supabase.functions.invoke("update-invoice-status", {
+            body: { 
+              facturaId: id, 
+              nuevoEstado: factura.estado 
+            },
+          });
+
+          if (syncResponse.error) {
+            console.warn('Error al sincronizar con Holded:', syncResponse.error);
+            // No lanzamos error para que la actualización local se mantenga
+            toast({
+              title: "Advertencia",
+              description: "Factura actualizada localmente pero no se pudo sincronizar con Holded",
+              variant: "default",
+            });
+          } else {
+            console.log('Estado sincronizado con Holded:', syncResponse.data);
+          }
+        } catch (syncError) {
+          console.error('Error sincronizando con Holded:', syncError);
+          // Continuamos sin lanzar error
+        }
+      }
+
       return data;
     },
     onSuccess: () => {
