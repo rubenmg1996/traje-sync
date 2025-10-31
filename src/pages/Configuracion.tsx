@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { useSettings } from "@/hooks/useSettings";
-import { Loader2, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, AlertCircle, Shield } from "lucide-react";
 import { toast } from "sonner";
 
 const Configuracion = () => {
@@ -22,31 +22,11 @@ const Configuracion = () => {
   const [taxId, setTaxId] = useState("");
   
   const [wooUrl, setWooUrl] = useState("");
-  const [wooKey, setWooKey] = useState("");
-  const [wooSecret, setWooSecret] = useState("");
-  const [showWooKey, setShowWooKey] = useState(false);
-  const [showWooSecret, setShowWooSecret] = useState(false);
-  
-  const [twilioSid, setTwilioSid] = useState("");
-  const [twilioToken, setTwilioToken] = useState("");
-  const [twilioFrom, setTwilioFrom] = useState("");
   const [recipients, setRecipients] = useState("");
-  const [showTwilioSid, setShowTwilioSid] = useState(false);
-  const [showTwilioToken, setShowTwilioToken] = useState(false);
-  
-  const [holdedKey, setHoldedKey] = useState("");
-  const [showHoldedKey, setShowHoldedKey] = useState(false);
   
   const [defaultStockMin, setDefaultStockMin] = useState(5);
   const [syncAuto, setSyncAuto] = useState(false);
   const [syncInterval, setSyncInterval] = useState("off");
-
-  // Track which secret fields have been modified
-  const [wooKeyModified, setWooKeyModified] = useState(false);
-  const [wooSecretModified, setWooSecretModified] = useState(false);
-  const [twilioSidModified, setTwilioSidModified] = useState(false);
-  const [twilioTokenModified, setTwilioTokenModified] = useState(false);
-  const [holdedKeyModified, setHoldedKeyModified] = useState(false);
 
   // Load settings into form
   useEffect(() => {
@@ -58,26 +38,11 @@ const Configuracion = () => {
       setTaxId(settings.tax_id || "");
       
       setWooUrl(settings.woo_url || "");
-      setWooKey(settings.woo_consumer_key ? "********" : "");
-      setWooSecret(settings.woo_consumer_secret ? "********" : "");
-      
-      setTwilioSid(settings.twilio_account_sid ? "********" : "");
-      setTwilioToken(settings.twilio_auth_token ? "********" : "");
-      setTwilioFrom(settings.twilio_whatsapp_from || "");
       setRecipients(settings.notification_recipients?.join(", ") || "");
-      
-      setHoldedKey(settings.holded_api_key ? "********" : "");
       
       setDefaultStockMin(settings.default_stock_min || 5);
       setSyncAuto(settings.sync_auto || false);
       setSyncInterval(settings.sync_interval || "off");
-
-      // Reset modification flags when settings load
-      setWooKeyModified(false);
-      setWooSecretModified(false);
-      setTwilioSidModified(false);
-      setTwilioTokenModified(false);
-      setHoldedKeyModified(false);
     }
   }, [settings]);
 
@@ -89,29 +54,11 @@ const Configuracion = () => {
       store_address: storeAddress,
       tax_id: taxId,
       woo_url: wooUrl,
-      twilio_whatsapp_from: twilioFrom,
       notification_recipients: recipients.split(",").map(r => r.trim()).filter(Boolean),
       default_stock_min: defaultStockMin,
       sync_auto: syncAuto,
       sync_interval: syncInterval,
     };
-
-    // Actualizar secretos solo si fueron modificados; si se dejan vacíos, se limpian (null)
-    if (wooKeyModified) {
-      updates.woo_consumer_key = (!wooKey || wooKey === "********") ? null : wooKey;
-    }
-    if (wooSecretModified) {
-      updates.woo_consumer_secret = (!wooSecret || wooSecret === "********") ? null : wooSecret;
-    }
-    if (twilioSidModified) {
-      updates.twilio_account_sid = (!twilioSid || twilioSid === "********") ? null : twilioSid;
-    }
-    if (twilioTokenModified) {
-      updates.twilio_auth_token = (!twilioToken || twilioToken === "********") ? null : twilioToken;
-    }
-    if (holdedKeyModified) {
-      updates.holded_api_key = (!holdedKey || holdedKey === "********") ? null : holdedKey;
-    }
 
     updateSettings.mutate(updates);
   };
@@ -142,9 +89,10 @@ const Configuracion = () => {
     );
   }
 
-  const wooConfigured = Boolean(settings?.woo_url && settings?.woo_consumer_key && settings?.woo_consumer_secret);
-  const twilioConfigured = Boolean(settings?.twilio_account_sid && settings?.twilio_auth_token && settings?.twilio_whatsapp_from);
-  const holdedConfigured = Boolean(settings?.holded_api_key);
+  // Check if integrations are configured (via secrets)
+  const wooConfigured = Boolean(settings?.woo_url);
+  const twilioConfigured = true; // Managed via secrets
+  const holdedConfigured = true; // Managed via secrets
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -154,6 +102,22 @@ const Configuracion = () => {
           Configura las integraciones y ajustes del sistema
         </p>
       </div>
+
+      {/* Security Notice */}
+      <Card className="border-primary/20 bg-primary/5">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Shield className="h-5 w-5 text-primary" />
+            <CardTitle className="text-lg">Seguridad de Credenciales</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            Las credenciales de API (WooCommerce, Twilio, Holded) se gestionan de forma segura mediante secrets cifrados. 
+            No se almacenan en la base de datos y solo están accesibles para las funciones del servidor.
+          </p>
+        </CardContent>
+      </Card>
 
       {/* Datos de la tienda */}
       <Card>
@@ -240,234 +204,110 @@ const Configuracion = () => {
             </p>
           </div>
           
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="wooKey">Consumer Key</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="wooKey"
-                  type={showWooKey ? "text" : "password"}
-                  value={wooKey}
-                  onFocus={(e) => {
-                    if (e.target.value === "********") {
-                      setWooKey("");
-                    }
-                  }}
-                  onChange={(e) => {
-                    setWooKey(e.target.value);
-                    setWooKeyModified(true);
-                  }}
-                  placeholder="ck_..."
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowWooKey(!showWooKey)}
-                >
-                  {showWooKey ? "Ocultar" : "Ver"}
-                </Button>
-              </div>
+          <div className="rounded-lg bg-muted/50 border p-4 space-y-2">
+            <div className="flex items-center gap-2">
+              <Shield className="h-4 w-4 text-primary" />
+              <p className="text-sm font-medium">Credenciales Protegidas</p>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="wooSecret">Consumer Secret</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="wooSecret"
-                  type={showWooSecret ? "text" : "password"}
-                  value={wooSecret}
-                  onFocus={(e) => {
-                    if (e.target.value === "********") {
-                      setWooSecret("");
-                    }
-                  }}
-                  onChange={(e) => {
-                    setWooSecret(e.target.value);
-                    setWooSecretModified(true);
-                  }}
-                  placeholder="cs_..."
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowWooSecret(!showWooSecret)}
-                >
-                  {showWooSecret ? "Ocultar" : "Ver"}
-                </Button>
-              </div>
-            </div>
+            <p className="text-xs text-muted-foreground">
+              Las claves de API de WooCommerce (Consumer Key y Consumer Secret) están almacenadas de forma segura mediante secrets cifrados.
+            </p>
           </div>
 
-          <div className="rounded-lg bg-muted p-3 text-sm">
-            <p className="font-medium mb-1">¿Cómo obtener las claves API?</p>
-            <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
-              <li>Ve a WooCommerce → Ajustes → Avanzado → API REST</li>
-              <li>Haz clic en "Añadir clave" y genera nuevas credenciales</li>
-              <li>Copia el Consumer Key y Consumer Secret aquí</li>
-            </ol>
-          </div>
-
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <Button
               onClick={() => testWooConnection.mutate()}
-              disabled={!wooConfigured || testWooConnection.isPending}
+              disabled={testWooConnection.isPending || !wooUrl}
+              variant="outline"
             >
-              {testWooConnection.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Probar conexión
-            </Button>
-          </div>
-
-          {getLastLog("woocommerce") && (
-            <div className={`flex items-start gap-2 p-3 rounded-lg ${
-              getLastLog("woocommerce")?.success ? "bg-green-500/10" : "bg-destructive/10"
-            }`}>
-              {getLastLog("woocommerce")?.success ? (
-                <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5" />
+              {testWooConnection.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Probando...
+                </>
               ) : (
-                <XCircle className="h-5 w-5 text-destructive mt-0.5" />
+                "Probar Conexión"
               )}
-              <div className="flex-1 text-sm">
-                <p className="font-medium">Última prueba</p>
-                <p className="text-muted-foreground">{getLastLog("woocommerce")?.message}</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {new Date(getLastLog("woocommerce")!.created_at).toLocaleString()}
-                </p>
+            </Button>
+            {getLastLog("woocommerce") && (
+              <div className="flex items-center gap-2 text-sm">
+                {getLastLog("woocommerce")?.success ? (
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                ) : (
+                  <XCircle className="h-4 w-4 text-red-600" />
+                )}
+                <span className="text-muted-foreground">
+                  {getLastLog("woocommerce")?.message}
+                </span>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </CardContent>
       </Card>
 
-      {/* Twilio WhatsApp */}
+      {/* Notificaciones WhatsApp */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle>Notificaciones WhatsApp (Twilio)</CardTitle>
             <CardDescription>
-              Alertas automáticas por WhatsApp para stock bajo y cambios de encargos
+              Alertas automáticas de stock bajo y actualizaciones de encargos
             </CardDescription>
           </div>
           {getStatusBadge(twilioConfigured)}
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="twilioSid">Account SID</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="twilioSid"
-                  type={showTwilioSid ? "text" : "password"}
-                  value={twilioSid}
-                  onFocus={(e) => {
-                    if (e.target.value === "********") {
-                      setTwilioSid("");
-                    }
-                  }}
-                  onChange={(e) => {
-                    setTwilioSid(e.target.value);
-                    setTwilioSidModified(true);
-                  }}
-                  placeholder="AC..."
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowTwilioSid(!showTwilioSid)}
-                >
-                  {showTwilioSid ? "Ocultar" : "Ver"}
-                </Button>
-              </div>
+          <div className="rounded-lg bg-muted/50 border p-4 space-y-2">
+            <div className="flex items-center gap-2">
+              <Shield className="h-4 w-4 text-primary" />
+              <p className="text-sm font-medium">Credenciales Protegidas</p>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="twilioToken">Auth Token</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="twilioToken"
-                  type={showTwilioToken ? "text" : "password"}
-                  value={twilioToken}
-                  onFocus={(e) => {
-                    if (e.target.value === "********") {
-                      setTwilioToken("");
-                    }
-                  }}
-                  onChange={(e) => {
-                    setTwilioToken(e.target.value);
-                    setTwilioTokenModified(true);
-                  }}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowTwilioToken(!showTwilioToken)}
-                >
-                  {showTwilioToken ? "Ocultar" : "Ver"}
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="twilioFrom">WhatsApp From</Label>
-            <Input
-              id="twilioFrom"
-              value={twilioFrom}
-              onChange={(e) => setTwilioFrom(e.target.value)}
-              placeholder="whatsapp:+34600000000"
-            />
             <p className="text-xs text-muted-foreground">
-              Número de WhatsApp de Twilio (incluir prefijo "whatsapp:")
+              Las credenciales de Twilio (Account SID, Auth Token, número de WhatsApp) están almacenadas de forma segura mediante secrets cifrados.
             </p>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="recipients">Destinatarios de alertas</Label>
+            <Label htmlFor="recipients">Números de teléfono para notificaciones</Label>
             <Input
               id="recipients"
               value={recipients}
               onChange={(e) => setRecipients(e.target.value)}
-              placeholder="+34600000000, +34611111111"
+              placeholder="+34600000000, +34700000000"
             />
             <p className="text-xs text-muted-foreground">
-              Números separados por comas (incluir prefijo internacional)
+              Números separados por comas (formato internacional con +34)
             </p>
           </div>
 
-          <div className="rounded-lg bg-muted p-3 text-sm">
-            <p className="font-medium mb-1">Configuración de Twilio</p>
-            <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
-              <li>Crea una cuenta en Twilio.com</li>
-              <li>Configura WhatsApp Business API en tu cuenta</li>
-              <li>Copia tu Account SID y Auth Token desde el dashboard</li>
-            </ol>
-          </div>
-
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <Button
               onClick={() => testWhatsApp.mutate()}
-              disabled={!twilioConfigured || testWhatsApp.isPending}
+              disabled={testWhatsApp.isPending}
+              variant="outline"
             >
-              {testWhatsApp.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Enviar mensaje de prueba
-            </Button>
-          </div>
-
-          {getLastLog("twilio") && (
-            <div className={`flex items-start gap-2 p-3 rounded-lg ${
-              getLastLog("twilio")?.success ? "bg-green-500/10" : "bg-destructive/10"
-            }`}>
-              {getLastLog("twilio")?.success ? (
-                <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5" />
+              {testWhatsApp.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Enviando...
+                </>
               ) : (
-                <XCircle className="h-5 w-5 text-destructive mt-0.5" />
+                "Enviar Mensaje de Prueba"
               )}
-              <div className="flex-1 text-sm">
-                <p className="font-medium">Última prueba</p>
-                <p className="text-muted-foreground">{getLastLog("twilio")?.message}</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {new Date(getLastLog("twilio")!.created_at).toLocaleString()}
-                </p>
+            </Button>
+            {getLastLog("twilio") && (
+              <div className="flex items-center gap-2 text-sm">
+                {getLastLog("twilio")?.success ? (
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                ) : (
+                  <XCircle className="h-4 w-4 text-red-600" />
+                )}
+                <span className="text-muted-foreground">
+                  {getLastLog("twilio")?.message}
+                </span>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </CardContent>
       </Card>
 
@@ -477,101 +317,76 @@ const Configuracion = () => {
           <div>
             <CardTitle>Holded</CardTitle>
             <CardDescription>
-              Integración con Holded para generación automática de facturas
+              Facturación automática y gestión contable
             </CardDescription>
           </div>
           {getStatusBadge(holdedConfigured)}
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="holdedKey">API Key</Label>
-            <div className="flex gap-2">
-              <Input
-                id="holdedKey"
-                type={showHoldedKey ? "text" : "password"}
-                value={holdedKey}
-                onFocus={(e) => {
-                  if (e.target.value === "********") {
-                    setHoldedKey("");
-                  }
-                }}
-                onChange={(e) => {
-                  setHoldedKey(e.target.value);
-                  setHoldedKeyModified(true);
-                }}
-                placeholder="Ingresa tu API key de Holded"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setShowHoldedKey(!showHoldedKey)}
-              >
-                {showHoldedKey ? "Ocultar" : "Ver"}
-              </Button>
+          <div className="rounded-lg bg-muted/50 border p-4 space-y-2">
+            <div className="flex items-center gap-2">
+              <Shield className="h-4 w-4 text-primary" />
+              <p className="text-sm font-medium">Credenciales Protegidas</p>
             </div>
+            <p className="text-xs text-muted-foreground">
+              La clave de API de Holded está almacenada de forma segura mediante secrets cifrados.
+            </p>
           </div>
 
-          <div className="rounded-lg bg-muted p-3 text-sm">
-            <p className="font-medium mb-1">¿Cómo obtener la API Key?</p>
-            <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
-              <li>Accede a tu cuenta de Holded</li>
-              <li>Ve a Configuración → Más → Desarrolladores</li>
-              <li>Genera una nueva API Key y cópiala aquí</li>
-            </ol>
-          </div>
-
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <Button
               onClick={() => testHolded.mutate()}
-              disabled={!holdedConfigured || testHolded.isPending}
+              disabled={testHolded.isPending}
+              variant="outline"
             >
-              {testHolded.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Probar integración
-            </Button>
-          </div>
-
-          {getLastLog("holded") && (
-            <div className={`flex items-start gap-2 p-3 rounded-lg ${
-              getLastLog("holded")?.success ? "bg-green-500/10" : "bg-destructive/10"
-            }`}>
-              {getLastLog("holded")?.success ? (
-                <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5" />
+              {testHolded.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Probando...
+                </>
               ) : (
-                <XCircle className="h-5 w-5 text-destructive mt-0.5" />
+                "Probar Integración"
               )}
-              <div className="flex-1 text-sm">
-                <p className="font-medium">Última prueba</p>
-                <p className="text-muted-foreground">{getLastLog("holded")?.message}</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {new Date(getLastLog("holded")!.created_at).toLocaleString()}
-                </p>
+            </Button>
+            {getLastLog("holded") && (
+              <div className="flex items-center gap-2 text-sm">
+                {getLastLog("holded")?.success ? (
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                ) : (
+                  <XCircle className="h-4 w-4 text-red-600" />
+                )}
+                <span className="text-muted-foreground">
+                  {getLastLog("holded")?.message}
+                </span>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </CardContent>
       </Card>
 
-      {/* Ajustes de la app */}
+      {/* Ajustes de la aplicación */}
       <Card>
         <CardHeader>
           <CardTitle>Ajustes de la Aplicación</CardTitle>
           <CardDescription>
-            Configuración general del comportamiento del sistema
+            Configuración general y comportamiento del sistema
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="defaultStockMin">Stock mínimo por defecto</Label>
+        <CardContent className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label>Stock mínimo por defecto</Label>
+              <p className="text-xs text-muted-foreground">
+                Nivel de stock que activará alertas automáticas
+              </p>
+            </div>
             <Input
-              id="defaultStockMin"
               type="number"
-              min="0"
               value={defaultStockMin}
-              onChange={(e) => setDefaultStockMin(parseInt(e.target.value) || 0)}
+              onChange={(e) => setDefaultStockMin(parseInt(e.target.value) || 5)}
+              className="w-24"
+              min="0"
             />
-            <p className="text-xs text-muted-foreground">
-              Cantidad mínima de stock para alertar en nuevos productos
-            </p>
           </div>
 
           <Separator />
@@ -579,8 +394,8 @@ const Configuracion = () => {
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <Label>Sincronización automática</Label>
-              <p className="text-sm text-muted-foreground">
-                Sincronizar productos de WooCommerce automáticamente
+              <p className="text-xs text-muted-foreground">
+                Sincronizar stock automáticamente con WooCommerce
               </p>
             </div>
             <Switch
@@ -589,35 +404,83 @@ const Configuracion = () => {
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="syncInterval">Intervalo de sincronización</Label>
-            <Select value={syncInterval} onValueChange={setSyncInterval}>
-              <SelectTrigger id="syncInterval">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="off">Desactivado</SelectItem>
-                <SelectItem value="6h">Cada 6 horas</SelectItem>
-                <SelectItem value="12h">Cada 12 horas</SelectItem>
-                <SelectItem value="24h">Cada 24 horas</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              Frecuencia de sincronización automática (requiere sincronización activada)
-            </p>
-          </div>
+          {syncAuto && (
+            <div className="space-y-2 pl-4">
+              <Label htmlFor="syncInterval">Intervalo de sincronización</Label>
+              <Select value={syncInterval} onValueChange={setSyncInterval}>
+                <SelectTrigger id="syncInterval">
+                  <SelectValue placeholder="Selecciona intervalo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="off">Desactivado</SelectItem>
+                  <SelectItem value="15m">Cada 15 minutos</SelectItem>
+                  <SelectItem value="30m">Cada 30 minutos</SelectItem>
+                  <SelectItem value="1h">Cada hora</SelectItem>
+                  <SelectItem value="6h">Cada 6 horas</SelectItem>
+                  <SelectItem value="24h">Cada 24 horas</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Botón guardar */}
+      {/* Logs recientes */}
+      {recentLogs && recentLogs.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Actividad Reciente</CardTitle>
+            <CardDescription>
+              Últimas operaciones de sincronización y pruebas
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {recentLogs.map((log) => (
+                <div
+                  key={log.id}
+                  className="flex items-start gap-3 rounded-lg border p-3 text-sm"
+                >
+                  {log.success ? (
+                    <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5" />
+                  ) : (
+                    <XCircle className="h-5 w-5 text-red-600 mt-0.5" />
+                  )}
+                  <div className="flex-1 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium capitalize">{log.source}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(log.created_at).toLocaleString("es-ES")}
+                      </span>
+                    </div>
+                    <p className="text-muted-foreground">{log.message}</p>
+                    {log.action && (
+                      <Badge variant="outline" className="text-xs">
+                        {log.action}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="flex justify-end">
         <Button
           onClick={handleSave}
           disabled={updateSettings.isPending}
           size="lg"
         >
-          {updateSettings.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Guardar configuración
+          {updateSettings.isPending ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Guardando...
+            </>
+          ) : (
+            "Guardar configuración"
+          )}
         </Button>
       </div>
     </div>

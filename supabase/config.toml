@@ -3,12 +3,6 @@ project_id = "zkqwrhdcryxfkeneiqqd"
 [functions.notify-low-stock-whatsapp]
 verify_jwt = false
 
-[functions.sync-all-woocommerce]
-verify_jwt = false
-
-[functions.create-encargo]
-verify_jwt = false
-
 [functions.notify-encargo-status]
 verify_jwt = false
 

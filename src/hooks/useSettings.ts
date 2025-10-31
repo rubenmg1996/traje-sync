@@ -10,13 +10,7 @@ export interface Settings {
   store_address: string | null;
   tax_id: string | null;
   woo_url: string | null;
-  woo_consumer_key: string | null;
-  woo_consumer_secret: string | null;
-  twilio_account_sid: string | null;
-  twilio_auth_token: string | null;
-  twilio_whatsapp_from: string | null;
   notification_recipients: string[];
-  holded_api_key: string | null;
   default_stock_min: number;
   sync_auto: boolean;
   sync_interval: string;
@@ -89,7 +83,14 @@ export const useSettings = () => {
 
   const testWooConnection = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke("sync-all-woocommerce");
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("No hay sesión activa");
+
+      const { data, error } = await supabase.functions.invoke("sync-all-woocommerce", {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
       
       // Log the test
       await supabase.from("sync_logs").insert({

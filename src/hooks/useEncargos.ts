@@ -131,8 +131,14 @@ export const useCreateEncargo = () => {
 
   return useMutation({
     mutationFn: async (encargo: Omit<Encargo, "id" | "numero_encargo" | "fecha_actualizacion">) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("No hay sesión activa");
+
       // Mover la creación a una función de backend para evitar problemas de RLS
       const { data, error } = await supabase.functions.invoke("create-encargo", {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
         body: encargo,
       });
 
