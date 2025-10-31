@@ -50,13 +50,13 @@ serve(async (req) => {
 
     const { data: settings } = await supabaseAdmin
       .from('settings')
-      .select('notification_recipients')
+      .select('notification_recipients, twilio_account_sid, twilio_auth_token, twilio_whatsapp_from')
       .eq('id', 'site')
       .single();
 
-    const twilioAccountSid = Deno.env.get('TWILIO_ACCOUNT_SID');
-    const twilioAuthToken = Deno.env.get('TWILIO_AUTH_TOKEN');
-    const twilioWhatsappFrom = Deno.env.get('TWILIO_WHATSAPP_FROM');
+    const twilioAccountSid = settings?.twilio_account_sid;
+    const twilioAuthToken = settings?.twilio_auth_token;
+    const twilioWhatsappFrom = settings?.twilio_whatsapp_from;
 
     console.log('Twilio config:', {
       hasSid: !!twilioAccountSid,
