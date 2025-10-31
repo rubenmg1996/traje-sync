@@ -335,7 +335,7 @@ serve(async (req) => {
             name: item.nombre,
             quantity: item.cantidad,
             unitPrice: item.precio_unitario, // Euros (para cálculo interno)
-            tax: 21 as number, // IVA 21%
+            tax: 0, // Sin IVA
             ...(item.observaciones && { desc: item.observaciones })
           }));
 

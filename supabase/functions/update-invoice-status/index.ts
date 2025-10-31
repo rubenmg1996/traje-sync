@@ -81,12 +81,12 @@ serve(async (req) => {
     let holdedResponseText;
 
     // Holded no permite editar facturas aprobadas directamente
-    // Para marcar como pagada, debemos registrar un pago en el documento
+    // Para marcar como pagada, usamos el endpoint payDocument
     if (nuevoEstado === 'pagada') {
       console.log('Registrando pago en Holded para marcar como pagada');
       
       holdedResponse = await fetch(
-        'https://api.holded.com/api/invoicing/v1/documents/pay',
+        `https://api.holded.com/api/invoicing/v1/documents/invoice/${factura.holded_id}/pay`,
         {
           method: 'POST',
           headers: {
@@ -94,11 +94,8 @@ serve(async (req) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            docType: 'invoice',
-            documentId: factura.holded_id,
-            amount: factura.total,
             date: Math.floor(Date.now() / 1000), // Unix timestamp
-            desc: 'Pago registrado desde la app',
+            amount: factura.total,
           }),
         }
       );
