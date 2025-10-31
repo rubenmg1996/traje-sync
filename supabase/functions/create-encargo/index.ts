@@ -120,9 +120,9 @@ export async function handler(req: Request): Promise<Response> {
 
       if (productosError) throw productosError;
 
-      // 4) Update stock SOLO si el encargo está en estado 'entregado'
-      // Para otros estados, el trigger lo manejará cuando cambie a 'entregado'
-      if (newEncargo.estado === 'entregado') {
+      // 4) Update stock para todos los estados excepto 'cancelado'
+      // El stock se descuenta al crear el encargo, no cuando se entrega
+      if (newEncargo.estado !== 'cancelado') {
         for (const p of productos) {
           const { data: prodActual, error: fetchError } = await supabaseAdmin
             .from("productos")

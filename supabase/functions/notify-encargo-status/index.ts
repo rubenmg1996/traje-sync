@@ -213,10 +213,10 @@ serve(async (req) => {
       );
     }
 
-    // Actualizar stock y notificar si baja del mínimo cuando estado es "entregado"
-    if (estado === 'entregado' && encargoId) {
+    // Devolver stock si el encargo se cancela
+    if (estado === 'cancelado' && encargoId) {
       try {
-        console.log('Actualizando stock y verificando stock bajo para encargo:', encargoId);
+        console.log('Devolviendo stock para encargo cancelado:', encargoId);
         
         // Obtener productos del encargo
         const { data: encargoProductos, error: epError } = await supabaseAdmin
@@ -227,13 +227,13 @@ serve(async (req) => {
         if (epError) {
           console.error('Error obteniendo productos del encargo:', epError);
         } else if (encargoProductos && encargoProductos.length > 0) {
-          console.log('Productos a actualizar:', encargoProductos.length);
+          console.log('Productos a devolver stock:', encargoProductos.length);
 
           for (const ep of encargoProductos) {
-            // Obtener stock actual y mínimo del producto
+            // Obtener stock actual del producto
             const { data: producto, error: prodError } = await supabaseAdmin
               .from('productos')
-              .select('id, nombre, stock_actual, stock_minimo')
+              .select('id, nombre, stock_actual')
               .eq('id', ep.producto_id)
               .single();
 
@@ -243,45 +243,25 @@ serve(async (req) => {
             }
 
             const stockAnterior = producto.stock_actual ?? 0;
-            const stockMinimo = producto.stock_minimo ?? 5;
-            const nuevoStock = stockAnterior - ep.cantidad;
+            const nuevoStock = stockAnterior + ep.cantidad;
 
-            console.log(`Producto ${producto.nombre}: Stock anterior=${stockAnterior}, Nuevo=${nuevoStock}, Mínimo=${stockMinimo}`);
+            console.log(`Devolviendo stock de ${producto.nombre}: ${stockAnterior} + ${ep.cantidad} = ${nuevoStock}`);
 
-            // Actualizar stock
+            // Devolver stock
             const { error: updateError } = await supabaseAdmin
               .from('productos')
               .update({ stock_actual: nuevoStock })
               .eq('id', ep.producto_id);
 
             if (updateError) {
-              console.error('Error actualizando stock:', updateError);
+              console.error('Error devolviendo stock:', updateError);
               continue;
-            }
-
-            // Verificar si bajó del stock mínimo
-            if (stockAnterior >= stockMinimo && nuevoStock < stockMinimo) {
-              console.log(`Stock bajo detectado para ${producto.nombre} - notificando...`);
-              try {
-                await supabaseAdmin.functions.invoke('notify-low-stock-whatsapp', {
-                  body: {
-                    producto_id: producto.id,
-                    nombre: producto.nombre,
-                    stock_actual: nuevoStock,
-                    stock_minimo: stockMinimo,
-                  },
-                });
-                console.log(`Notificación de stock bajo enviada para: ${producto.nombre}`);
-              } catch (notifError) {
-                console.error(`Error enviando notificación de stock bajo:`, notifError);
-                // Non-blocking
-              }
             }
           }
         }
       } catch (stockError) {
-        console.error('Error en actualización de stock:', stockError);
-        // Non-blocking, continuamos con la facturación
+        console.error('Error en devolución de stock:', stockError);
+        // Non-blocking, continuamos con la notificación
       }
     }
 
