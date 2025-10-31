@@ -257,6 +257,21 @@ serve(async (req) => {
               console.error('Error devolviendo stock:', updateError);
               continue;
             }
+
+            // Sincronizar stock con WooCommerce
+            try {
+              console.log(`Sincronizando stock con WooCommerce para: ${producto.nombre}`);
+              await supabaseAdmin.functions.invoke("sync-woocommerce", {
+                body: {
+                  productId: ep.producto_id,
+                  operation: 'sync'
+                }
+              });
+              console.log(`Stock sincronizado con WooCommerce para: ${producto.nombre}`);
+            } catch (syncError) {
+              console.error(`Error sincronizando con WooCommerce:`, syncError);
+              // Non-blocking, continuamos
+            }
           }
         }
       } catch (stockError) {

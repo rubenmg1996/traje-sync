@@ -143,6 +143,21 @@ export async function handler(req: Request): Promise<Response> {
 
           if (updError) throw updError;
 
+          // Sincronizar stock con WooCommerce
+          try {
+            console.log(`Sincronizando stock con WooCommerce para: ${prodActual?.nombre}`);
+            await supabaseAdmin.functions.invoke("sync-woocommerce", {
+              body: {
+                productId: p.producto_id,
+                operation: 'sync'
+              }
+            });
+            console.log(`Stock sincronizado con WooCommerce para: ${prodActual?.nombre}`);
+          } catch (syncError) {
+            console.error(`Error sincronizando con WooCommerce:`, syncError);
+            // Non-blocking, continuamos
+          }
+
           // Verificar si el stock ha bajado del mínimo
           if (stockAnterior >= stockMinimo && nuevoStock < stockMinimo) {
             console.log(`Stock bajo detectado: ${prodActual?.nombre} - Anterior: ${stockAnterior}, Nuevo: ${nuevoStock}, Mínimo: ${stockMinimo}`);
