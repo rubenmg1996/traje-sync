@@ -53,6 +53,40 @@ export async function handler(req: Request): Promise<Response> {
   }
 
   try {
+    // Validate JWT and check admin role
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: "No se proporcionó autenticación" }), {
+        status: 401,
+        headers: corsHeaders,
+      });
+    }
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+    
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: "Token de autenticación inválido" }), {
+        status: 401,
+        headers: corsHeaders,
+      });
+    }
+
+    // Verify user has admin role
+    const { data: employee, error: employeeError } = await supabaseAdmin
+      .from("employees")
+      .select("rol, activo")
+      .eq("email", user.email)
+      .eq("activo", true)
+      .single();
+
+    if (employeeError || !employee || employee.rol !== "administrador") {
+      return new Response(JSON.stringify({ error: "Permisos insuficientes. Solo administradores pueden crear encargos" }), {
+        status: 403,
+        headers: corsHeaders,
+      });
+    }
+
     const body = (await req.json()) as EncargoPayload;
     const {
       productos = [],
