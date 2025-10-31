@@ -490,11 +490,14 @@ serve(async (req) => {
                     }
                   );
                   
+                  const payResponseText = await payResponse.text();
+                  console.log('Holded pay response status:', payResponse.status);
+                  console.log('Holded pay response body:', payResponseText);
+                  
                   if (payResponse.ok) {
                     console.log('Invoice marked as paid in Holded successfully');
                   } else {
-                    const payError = await payResponse.text();
-                    console.error('Error marking invoice as paid in Holded:', payError);
+                    console.error('Error marking invoice as paid in Holded:', payResponseText);
                   }
                 } catch (payError) {
                   console.error('Exception marking invoice as paid in Holded:', payError);
