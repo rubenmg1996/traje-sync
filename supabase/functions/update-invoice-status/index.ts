@@ -38,7 +38,7 @@ serve(async (req) => {
     // Obtener la factura y API key de Holded
     const { data: factura, error: facturaError } = await supabaseAdmin
       .from('facturas')
-      .select('holded_id, numero_documento')
+      .select('holded_id, numero_documento, total')
       .eq('id', facturaId)
       .single();
 
@@ -75,57 +75,114 @@ serve(async (req) => {
       );
     }
 
-    // Mapear estados locales a estados de Holded
-    // En Holded: 0 = borrador, 1 = aprobado/emitido, 2 = pagado, 3 = cancelado
-    const holdedStatusMap: Record<string, number> = {
-      'emitida': 1,
-      'pagada': 2,
-      'cancelada': 3,
-    };
+    console.log(`Actualizando factura ${factura.holded_id} a estado: ${nuevoEstado}`);
 
-    const holdedStatus = holdedStatusMap[nuevoEstado];
+    let holdedResponse;
+    let holdedResponseText;
 
-    if (holdedStatus === undefined) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Estado no válido' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+    // Holded no permite editar facturas aprobadas directamente
+    // Para marcar como pagada, debemos crear un pago
+    if (nuevoEstado === 'pagada') {
+      console.log('Creando pago en Holded para marcar como pagada');
+      
+      holdedResponse = await fetch(
+        `https://api.holded.com/api/invoicing/v1/documents/invoice/${factura.holded_id}/payments`,
+        {
+          method: 'POST',
+          headers: {
+            'Key': holdedApiKey,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            amount: factura.total,
+            date: Math.floor(Date.now() / 1000), // Unix timestamp
+            paymentMethod: 'other',
+          }),
+        }
       );
-    }
 
-    console.log(`Actualizando factura ${factura.holded_id} a estado ${holdedStatus} (${nuevoEstado})`);
+      holdedResponseText = await holdedResponse.text();
+      console.log('Holded payment response status:', holdedResponse.status);
+      console.log('Holded payment response:', holdedResponseText);
 
-    // Actualizar estado en Holded
-    const holdedResponse = await fetch(
-      `https://api.holded.com/api/invoicing/v1/documents/invoice/${factura.holded_id}`,
-      {
-        method: 'PUT',
-        headers: {
-          'Key': holdedApiKey,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          status: holdedStatus,
-        }),
+      if (!holdedResponse.ok) {
+        console.error('Error al crear pago en Holded:', holdedResponseText);
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: 'Error al marcar como pagada en Holded',
+            details: holdedResponseText 
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+        );
       }
-    );
 
-    const holdedResponseText = await holdedResponse.text();
-    console.log('Holded response status:', holdedResponse.status);
-    console.log('Holded response:', holdedResponseText);
+      console.log(`✅ Pago registrado en Holded: ${factura.numero_documento} -> pagada`);
+    } else {
+      // Para otros estados (emitida, cancelada) intentamos actualizar el estado
+      // Nota: Holded puede rechazar cambios en facturas ya aprobadas
+      const holdedStatusMap: Record<string, number> = {
+        'emitida': 1,
+        'cancelada': 3,
+      };
 
-    if (!holdedResponse.ok) {
-      console.error('Error al actualizar en Holded:', holdedResponseText);
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: 'Error al sincronizar con Holded',
-          details: holdedResponseText 
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      const holdedStatus = holdedStatusMap[nuevoEstado];
+
+      if (holdedStatus === undefined) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Estado no válido' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        );
+      }
+
+      console.log(`Actualizando estado en Holded a: ${holdedStatus}`);
+
+      holdedResponse = await fetch(
+        `https://api.holded.com/api/invoicing/v1/documents/invoice/${factura.holded_id}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Key': holdedApiKey,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            status: holdedStatus,
+          }),
+        }
       );
-    }
 
-    console.log(`✅ Estado actualizado en Holded: ${factura.numero_documento} -> ${nuevoEstado}`);
+      holdedResponseText = await holdedResponse.text();
+      console.log('Holded update response status:', holdedResponse.status);
+      console.log('Holded update response:', holdedResponseText);
+
+      if (!holdedResponse.ok) {
+        console.error('Error al actualizar estado en Holded:', holdedResponseText);
+        
+        // Si es error de documento aprobado, devolvemos un warning en lugar de error
+        if (holdedResponseText.includes('Approved documents cannot be edited')) {
+          console.warn('⚠️ Factura ya aprobada en Holded, no se puede cambiar el estado directamente');
+          return new Response(
+            JSON.stringify({ 
+              success: true, 
+              warning: 'La factura ya está aprobada en Holded y no puede modificarse. Los cambios se guardaron localmente.',
+              holdedId: factura.holded_id,
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+          );
+        }
+        
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: 'Error al sincronizar con Holded',
+            details: holdedResponseText 
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+        );
+      }
+
+      console.log(`✅ Estado actualizado en Holded: ${factura.numero_documento} -> ${nuevoEstado}`);
+    }
 
     return new Response(
       JSON.stringify({ 
