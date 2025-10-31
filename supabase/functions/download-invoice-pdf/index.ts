@@ -45,13 +45,17 @@ serve(async (req) => {
 
     console.log('Descargando PDF de factura:', holdedId);
 
-    // Descargar el PDF desde Holded con reintentos (por si el PDF aún no está generado)
-    const maxAttempts = 8; // Aumentado de 5 a 8
+    // Delay inicial para dar tiempo a Holded a generar el PDF
     const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    console.log('Esperando 3 segundos antes del primer intento para que Holded genere el PDF...');
+    await wait(3000);
 
+    // Descargar el PDF desde Holded con reintentos (por si el PDF aún no está generado)
+    const maxAttempts = 10; // Aumentado a 10 intentos
     let lastStatus = 0;
     let lastErrorText = '';
     let lastContentType = '';
+    let lastHtmlPreview = '';
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       const response = await fetch(
@@ -92,18 +96,25 @@ serve(async (req) => {
 
       // CRÍTICO: Si no es PDF válido, NO descargar
       if (!contentType.includes('application/pdf') && !contentType.includes('pdf')) {
+        // Capturar el HTML para ver qué está devolviendo Holded
+        const htmlText = await response.text();
+        lastHtmlPreview = htmlText.substring(0, 300);
         console.warn(`Intento ${attempt}/${maxAttempts} - Respuesta no es PDF (type=${contentType})`);
+        console.warn(`HTML recibido (primeros 300 chars): ${lastHtmlPreview}`);
+        
         if (attempt < maxAttempts) {
-          await wait(2000 * attempt); // Espera progresiva más larga
+          await wait(3000 * attempt); // Espera progresiva más larga (3s, 6s, 9s...)
           continue;
         }
         // ÚLTIMO INTENTO: Si sigue sin ser PDF, devolver error
         console.error('Error final: Holded no devolvió un PDF válido después de todos los intentos');
+        console.error('Último HTML recibido:', lastHtmlPreview);
         return new Response(
           JSON.stringify({ 
             error: 'Holded no devolvió un PDF válido. El documento puede no estar completamente procesado.', 
             details: `Content-Type recibido: ${contentType}`,
-            suggestion: 'Intenta nuevamente en unos segundos'
+            htmlPreview: lastHtmlPreview,
+            suggestion: 'El PDF puede tardar varios minutos en generarse en Holded. Espera un momento e intenta nuevamente.'
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 502 }
         );
@@ -112,7 +123,7 @@ serve(async (req) => {
       if (contentLength < 1000) {
         console.warn(`Intento ${attempt}/${maxAttempts} - PDF muy pequeño (${contentLength} bytes), puede estar incompleto`);
         if (attempt < maxAttempts) {
-          await wait(2000 * attempt);
+          await wait(3000 * attempt);
           continue;
         }
       }
@@ -136,7 +147,8 @@ serve(async (req) => {
         error: 'No se pudo obtener un PDF válido de Holded después de múltiples intentos', 
         status: lastStatus, 
         details: lastErrorText || `Último Content-Type: ${lastContentType}`,
-        suggestion: 'El PDF puede no estar generado aún. Intenta en unos minutos.'
+        htmlPreview: lastHtmlPreview,
+        suggestion: 'El PDF puede tardar varios minutos en generarse en Holded. Espera un momento e intenta nuevamente.'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 502 }
     );
