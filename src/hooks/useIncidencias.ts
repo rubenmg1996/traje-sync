@@ -155,13 +155,10 @@ export const useUpdateIncidencia = () => {
 
       if (error) throw error;
       
-      // Enviar notificación si:
-      // 1. La prioridad cambia a 'alta' desde otro valor
-      // 2. El estado resultante NO es 'en_curso'
+      // Enviar notificación si la prioridad cambia a 'alta' desde otro valor
       const changedToHigh = updates.prioridad === 'alta' && previousPrioridad && previousPrioridad !== 'alta';
-      const finalEstado = updates.estado || data.estado;
       
-      if (changedToHigh && finalEstado !== 'en_curso') {
+      if (changedToHigh) {
         try {
           await supabase.functions.invoke('notify-incident-status', {
             body: {
@@ -169,7 +166,7 @@ export const useUpdateIncidencia = () => {
               titulo: data.titulo,
               descripcion: data.descripcion,
               prioridad: data.prioridad,
-              estado: finalEstado,
+              estado: data.estado,
               creadoPorNombre: data.creador ? `${data.creador.nombre} ${data.creador.apellido}` : undefined
             }
           });
